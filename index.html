@@ -1335,18 +1335,26 @@ const ContractsModule = {
         
         const items = await this.api.db.getAll('items', 'contractId', id);
         const payments = await this.api.db.getAll('payments', 'contractId', id);
+        payments.sort((a, b) => new Date(b.date) - new Date(a.date)); // сортировка по дате
+        
         const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
         const paidPct = c.totalAmount > 0 ? (totalPaid / c.totalAmount * 100) : 0;
         const remain = c.totalAmount - totalPaid;
         
+        // Сумма позиций для сверки
+        const itemsSum = items.reduce((s, i) => s + (i.cost || 0), 0);
+        const sumsDiff = c.totalAmount - itemsSum;
+        const sumsDiffClass = Math.abs(sumsDiff) < 1 ? 'success' : 'danger';
+        
+        // Оплаты с кликом для просмотра деталей
         const paymentsHtml = payments.length ? payments.map(p => `
-            <div class="payment-item">
+            <div class="payment-item" style="cursor:pointer" onclick="ContractsModule.showPaymentDetails('${p.id}', '${id}')">
                 <div class="payment-info">
                     <div class="payment-date">${this.api.formatDate(p.date)}</div>
                     <div class="payment-amount">+${this.api.formatMoney(p.amount)}</div>
                     <div class="payment-type">${p.type === 'cash' ? 'нал' : 'безнал'}</div>
                 </div>
-                <span class="payment-delete" onclick="ContractsModule.deletePayment('${p.id}','${id}')">🗑️</span>
+                <span style="color:var(--t3);font-size:14px">›</span>
             </div>
         `).join('') : '<div style="padding:15px;text-align:center;color:var(--text-secondary)">Нет платежей</div>';
         
@@ -1377,15 +1385,20 @@ const ContractsModule = {
                 <div class="card mb-15">
                     <div class="stat-row"><span class="stat-label">Заказчик</span><span class="stat-value">${c.customer||'—'}</span></div>
                     <div class="stat-row"><span class="stat-label">Сумма договора</span><span class="stat-value">${this.api.formatMoney(c.totalAmount)}</span></div>
+                    <div class="stat-row"><span class="stat-label">Сумма позиций</span><span class="stat-value ${sumsDiffClass}">${this.api.formatMoney(itemsSum)} ${Math.abs(sumsDiff) < 1 ? '✓' : '(Δ ' + this.api.formatMoney(sumsDiff) + ')'}</span></div>
                     <div class="stat-row"><span class="stat-label">Тип оплаты</span><span class="stat-value">${c.paymentType==='cash'?'Наличный':'Безналичный'}</span></div>
                     <div class="stat-row"><span class="stat-label">Скидка</span><span class="stat-value">${c.discount||0}%</span></div>
                     <div class="stat-row"><span class="stat-label">Оплачено</span><span class="stat-value primary">${this.api.formatMoney(totalPaid)} (${this.api.formatPercent(paidPct)})</span></div>
                     <div class="stat-row"><span class="stat-label">Остаток</span><span class="stat-value success">${this.api.formatMoney(remain)}</span></div>
                 </div>
-                <div class="section-title">Оплаты</div>
+                
+                <button class="btn btn-primary btn-block mb-15" onclick="ContractsModule.goToCalc('${id}')">🧮 Рассчитать доплату</button>
+                
+                <div class="section-title">Оплаты (${payments.length})</div>
                 <div class="card mb-15">${paymentsHtml}</div>
                 <button class="btn btn-success btn-block mb-15" onclick="ContractsModule.showAddPayment('${id}')">+ Добавить оплату</button>
-                <div class="section-title">Позиции (${items.length})</div>
+                
+                <div class="section-title">Позиции (${items.length}) — ${this.api.formatMoney(itemsSum)}</div>
                 <div class="card mb-15">${itemsHtml}</div>
                 <div class="flex gap-10 mb-10">
                     <button class="btn btn-primary" style="flex:1" onclick="ContractsModule.addItem('${id}')">+ Позиция</button>
@@ -1394,6 +1407,114 @@ const ContractsModule = {
                 <button class="btn btn-danger btn-block" onclick="ContractsModule.deleteContract('${id}')">🗑️ Удалить договор</button>
             `
         });
+    },
+    
+    // Переход в Расчёт с выбранным договором
+    goToCalc(contractId) {
+        this.api.closeModal();
+        CalcModule.selectedContractId = contractId;
+        CalcModule.selectedItems = [];
+        CalcModule.customPercents = {};
+        App.activateModule('calc');
+    },
+    
+    // Показать детали оплаты
+    async showPaymentDetails(paymentId, contractId) {
+        const p = await this.api.db.get('payments', paymentId);
+        if (!p) return;
+        
+        let detailsHtml = '';
+        
+        // Если есть детализация по позициям
+        if (p.details && p.details.length > 0) {
+            detailsHtml = p.details.map(d => `
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+                    <div>
+                        <div style="font-weight:500">${d.itemName}</div>
+                        <div style="font-size:12px;color:var(--t2)">${d.fromPercent}% → ${d.toPercent}%</div>
+                    </div>
+                    <span style="font-weight:600">${this.api.formatMoney(d.amount)}</span>
+                </div>
+            `).join('');
+            
+            if (p.services && p.services.length > 0) {
+                detailsHtml += p.services.map(s => `
+                    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+                        <span style="color:var(--t2)">${s.name}</span>
+                        <span style="font-weight:600">${this.api.formatMoney(s.amount)}</span>
+                    </div>
+                `).join('');
+            }
+            
+            if (p.discount > 0) {
+                detailsHtml += `<div style="padding:6px 0;font-size:12px;color:var(--t2)">Скидка: ${p.discount}%</div>`;
+            }
+        } else {
+            detailsHtml = '<div style="padding:15px;text-align:center;color:var(--t2)">Детализация недоступна</div>';
+        }
+        
+        this.api.showModal({
+            title: 'Оплата ' + this.api.formatDate(p.date),
+            body: `
+                <div class="card mb-15">
+                    <div class="stat-row"><span class="stat-label">Дата</span><span class="stat-value">${this.api.formatDate(p.date)}</span></div>
+                    <div class="stat-row"><span class="stat-label">Сумма</span><span class="stat-value primary">${this.api.formatMoney(p.amount)}</span></div>
+                    <div class="stat-row"><span class="stat-label">Тип</span><span class="stat-value">${p.type === 'cash' ? 'Наличный' : 'Безналичный'}</span></div>
+                </div>
+                <div class="section-title">Детализация</div>
+                <div class="card mb-15">${detailsHtml}</div>
+                <div class="flex gap-10">
+                    <button class="btn btn-secondary" style="flex:1" onclick="ContractsModule.editPayment('${paymentId}', '${contractId}')">✏️ Изменить</button>
+                    <button class="btn btn-danger" onclick="ContractsModule.deletePayment('${paymentId}', '${contractId}')">🗑️</button>
+                </div>
+                <button class="btn btn-primary btn-block mt-15" onclick="ContractsModule.showContract('${contractId}')">← Назад</button>
+            `
+        });
+    },
+    
+    // Редактирование оплаты
+    async editPayment(paymentId, contractId) {
+        const p = await this.api.db.get('payments', paymentId);
+        if (!p) return;
+        
+        this.api.showModal({
+            title: 'Редактировать оплату',
+            body: `
+                <div class="form-group">
+                    <label class="form-label">Дата</label>
+                    <input type="date" class="input" id="editPayDate" value="${p.date}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Сумма</label>
+                    <input type="number" class="input" id="editPayAmount" value="${p.amount}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Тип оплаты</label>
+                    <select class="input" id="editPayType">
+                        <option value="bank" ${p.type === 'bank' ? 'selected' : ''}>Безналичный</option>
+                        <option value="cash" ${p.type === 'cash' ? 'selected' : ''}>Наличный</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary btn-block" onclick="ContractsModule.saveEditPayment('${paymentId}', '${contractId}')">💾 Сохранить</button>
+                <button class="btn btn-secondary btn-block mt-10" onclick="ContractsModule.showPaymentDetails('${paymentId}', '${contractId}')">← Назад</button>
+            `
+        });
+    },
+    
+    async saveEditPayment(paymentId, contractId) {
+        const p = await this.api.db.get('payments', paymentId);
+        if (!p) return;
+        
+        p.date = document.getElementById('editPayDate').value;
+        p.amount = parseFloat(document.getElementById('editPayAmount').value) || 0;
+        p.type = document.getElementById('editPayType').value;
+        
+        await this.api.db.save('payments', p);
+        this.api.showToast('✅ Сохранено', 'success');
+        
+        await this.loadContracts();
+        this.api.rerender();
+        this.showContract(contractId);
     },
     
     showAddPayment(contractId) {
@@ -2151,22 +2272,111 @@ const CalcModule = {
                     <button class="btn btn-secondary" style="flex:1" onclick="CalcModule.exportPDF()">📄 PDF</button>
                 </div>
                 <div class="section-title" style="margin-top:20px">После получения оплаты</div>
-                <button class="btn btn-warning btn-block" onclick="CalcModule.confirmPayment()">✅ Зафиксировать оплату</button>
+                <button class="btn btn-warning btn-block" onclick="CalcModule.showConfirmPayment()">✅ Зафиксировать оплату</button>
                 <div style="font-size:12px;color:var(--t2);text-align:center;margin-top:8px">
-                    Обновит % оплаты для выбранных изделий
+                    Сохранит оплату с детализацией по позициям
                 </div>
             `
         });
     },
     
-    // Зафиксировать оплату — обновить paidPercent изделий
-    async confirmPayment() {
+    // Показать форму для фиксации оплаты с датой
+    showConfirmPayment() {
         if (!this.lastResult) return;
         
-        const { items } = this.lastResult;
+        const { contract, items, services } = this.lastResult;
+        const itemsTotal = items.reduce((s, i) => s + i.toCollect, 0);
+        let finalTotal = itemsTotal;
+        if (contract.discount > 0) {
+            finalTotal = itemsTotal - (itemsTotal * contract.discount / 100);
+        }
         
+        const svcTotal = Object.values(services).filter(s => s.enabled && s.amount > 0).reduce((s, sv) => s + sv.amount, 0);
+        const grandTotal = finalTotal + svcTotal;
+        
+        const today = new Date().toISOString().split('T')[0];
+        
+        let detailsHtml = items.map(i => `
+            <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px">
+                <span>${i.name} (${i.paidPercent}% → ${i.targetPercent}%)</span>
+                <span style="font-weight:500">${this.api.formatMoney(i.toCollect)}</span>
+            </div>
+        `).join('');
+        
+        this.api.showModal({
+            title: '✅ Зафиксировать оплату',
+            body: `
+                <div class="card mb-15">
+                    <div style="font-size:13px;color:var(--t2);margin-bottom:8px">Детализация:</div>
+                    ${detailsHtml}
+                    <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;font-weight:600">
+                        <span>Итого</span>
+                        <span style="color:var(--primary)">${this.api.formatMoney(grandTotal)}</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Дата оплаты</label>
+                    <input type="date" class="input" id="paymentDate" value="${today}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Тип оплаты</label>
+                    <select class="input" id="paymentType">
+                        <option value="bank" ${contract.paymentType === 'bank' ? 'selected' : ''}>Безналичный</option>
+                        <option value="cash" ${contract.paymentType === 'cash' ? 'selected' : ''}>Наличный</option>
+                    </select>
+                </div>
+                <button class="btn btn-success btn-block" onclick="CalcModule.saveConfirmedPayment()">💾 Сохранить оплату</button>
+            `
+        });
+    },
+    
+    // Сохранить оплату с детализацией
+    async saveConfirmedPayment() {
+        if (!this.lastResult) return;
+        
+        const { contract, items, services } = this.lastResult;
+        const date = document.getElementById('paymentDate').value;
+        const type = document.getElementById('paymentType').value;
+        
+        if (!date) {
+            this.api.showToast('Укажите дату', 'error');
+            return;
+        }
+        
+        const itemsTotal = items.reduce((s, i) => s + i.toCollect, 0);
+        let finalTotal = itemsTotal;
+        if (contract.discount > 0) {
+            finalTotal = itemsTotal - (itemsTotal * contract.discount / 100);
+        }
+        
+        const enabledSvc = Object.values(services).filter(s => s.enabled && s.amount > 0);
+        const svcTotal = enabledSvc.reduce((s, sv) => s + sv.amount, 0);
+        const grandTotal = finalTotal + svcTotal;
+        
+        // Сохраняем оплату с детализацией
+        const paymentId = this.api.generateId();
+        await this.api.db.save('payments', {
+            id: paymentId,
+            contractId: contract.id,
+            date: date,
+            amount: grandTotal,
+            type: type,
+            // Детализация по позициям
+            details: items.map(i => ({
+                itemId: i.id,
+                itemName: i.name,
+                itemCost: i.cost,
+                fromPercent: i.paidPercent,
+                toPercent: i.targetPercent,
+                amount: i.toCollect
+            })),
+            services: enabledSvc.map(s => ({ name: s.name, amount: s.amount })),
+            discount: contract.discount,
+            created: new Date().toISOString()
+        });
+        
+        // Обновляем paidPercent изделий
         for (const calcItem of items) {
-            // Находим изделие в базе и обновляем его paidPercent
             const item = await this.api.db.get('items', calcItem.id);
             if (item) {
                 item.paidPercent = calcItem.targetPercent;
@@ -2175,7 +2385,7 @@ const CalcModule = {
         }
         
         this.api.closeModal();
-        this.api.showToast('✅ Оплата зафиксирована!', 'success');
+        this.api.showToast('✅ Оплата сохранена!', 'success');
         
         // Перезагружаем данные и перерисовываем
         await this.loadData();
