@@ -1,4 +1,4 @@
-const CACHE_NAME = 'contract-calc-v1';
+const CACHE_NAME = 'contract-calc-v5';
 const urlsToCache = [
   './',
   './index.html',
