@@ -1350,15 +1350,26 @@ const ContractsModule = {
             </div>
         `).join('') : '<div style="padding:15px;text-align:center;color:var(--text-secondary)">Нет платежей</div>';
         
-        const itemsHtml = items.length ? items.map(i => `
-            <div class="stat-row">
-                <div>
-                    <div style="font-weight:500">${i.name}</div>
-                    <div style="font-size:12px;color:var(--text-secondary)">${i.code||''}</div>
+        const itemsHtml = items.length ? items.map(i => {
+            const paidPct = i.paidPercent || 0;
+            let paidColor = 'var(--t3)';
+            if (paidPct >= 100) paidColor = 'var(--success)';
+            else if (paidPct >= 70) paidColor = 'var(--primary)';
+            else if (paidPct > 0) paidColor = 'var(--warning)';
+            
+            return `
+                <div class="stat-row" style="cursor:pointer" onclick="ContractsModule.editItem('${i.id}')">
+                    <div>
+                        <div style="font-weight:500">${i.name}</div>
+                        <div style="font-size:12px;color:var(--text-secondary)">${i.code||''}</div>
+                    </div>
+                    <div style="text-align:right">
+                        <div style="font-weight:600">${this.api.formatMoney(i.cost)}</div>
+                        <span style="padding:2px 6px;background:${paidColor};color:white;border-radius:4px;font-size:11px;font-weight:600">${paidPct}%</span>
+                    </div>
                 </div>
-                <span style="font-weight:600">${this.api.formatMoney(i.cost)}</span>
-            </div>
-        `).join('') : '<div style="padding:15px;text-align:center;color:var(--text-secondary)">Нет позиций</div>';
+            `;
+        }).join('') : '<div style="padding:15px;text-align:center;color:var(--text-secondary)">Нет позиций</div>';
         
         this.api.showModal({
             title: c.number,
@@ -1621,10 +1632,72 @@ const ContractsModule = {
             contractId,
             code: document.getElementById('iCode').value.trim(),
             name, cost,
+            paidPercent: 0,  // % оплаты изделия
             created: new Date().toISOString()
         });
         
         this.api.showToast('✅ Позиция добавлена', 'success');
+        this.showContract(contractId);
+    },
+    
+    // Редактирование позиции
+    async editItem(itemId) {
+        const item = await this.api.db.get('items', itemId);
+        if (!item) return;
+        
+        const paidPct = item.paidPercent || 0;
+        
+        this.api.showModal({
+            title: 'Редактировать позицию',
+            body: `
+                <div class="form-group">
+                    <label class="form-label">Название</label>
+                    <input type="text" class="input" id="editName" value="${item.name}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Код</label>
+                    <input type="text" class="input" id="editCode" value="${item.code || ''}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Стоимость</label>
+                    <input type="number" class="input" id="editCost" value="${item.cost}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Оплачено %</label>
+                    <div class="quick-percent-buttons" style="margin-bottom:10px">
+                        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('editPaid').value=0" ${paidPct>=0?'':'disabled'}>0%</button>
+                        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('editPaid').value=10" ${paidPct>=10?'disabled':''}>10%</button>
+                        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('editPaid').value=70" ${paidPct>=70?'disabled':''}>70%</button>
+                        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('editPaid').value=100" ${paidPct>=100?'disabled':''}>100%</button>
+                    </div>
+                    <input type="number" class="input" id="editPaid" value="${paidPct}" min="0" max="100">
+                </div>
+                <div class="flex gap-10">
+                    <button class="btn btn-primary" style="flex:1" onclick="ContractsModule.saveEditItem('${itemId}', '${item.contractId}')">💾 Сохранить</button>
+                    <button class="btn btn-danger" onclick="ContractsModule.deleteItem('${itemId}', '${item.contractId}')">🗑️</button>
+                </div>
+            `
+        });
+    },
+    
+    async saveEditItem(itemId, contractId) {
+        const item = await this.api.db.get('items', itemId);
+        if (!item) return;
+        
+        item.name = document.getElementById('editName').value.trim();
+        item.code = document.getElementById('editCode').value.trim();
+        item.cost = parseFloat(document.getElementById('editCost').value) || 0;
+        item.paidPercent = Math.min(100, Math.max(0, parseFloat(document.getElementById('editPaid').value) || 0));
+        
+        await this.api.db.save('items', item);
+        this.api.showToast('✅ Сохранено', 'success');
+        this.showContract(contractId);
+    },
+    
+    async deleteItem(itemId, contractId) {
+        if (!confirm('Удалить позицию?')) return;
+        await this.api.db.delete('items', itemId);
+        this.api.showToast('🗑️ Удалено', 'success');
         this.showContract(contractId);
     },
     
@@ -1715,9 +1788,9 @@ const CalcModule = {
         return this.selectedItems.indexOf(itemId) !== -1;
     },
     
-    // Расчёт суммы к доплате для позиции
-    calcItemAmount(item, contract) {
-        const paidPct = contract.totalAmount > 0 ? (contract.paidAmount / contract.totalAmount * 100) : 0;
+    // Расчёт суммы к доплате для позиции (от % изделия, не договора)
+    calcItemAmount(item) {
+        const paidPct = item.paidPercent || 0;  // текущий % оплаты изделия
         const targetPct = this.customPercents[item.id] !== undefined ? this.customPercents[item.id] : 100;
         const remainPct = targetPct - paidPct;
         return remainPct > 0 ? item.cost * remainPct / 100 : 0;
@@ -1725,14 +1798,11 @@ const CalcModule = {
     
     // Итого по выбранным позициям
     calcTotal() {
-        const contract = this.getSelectedContract();
-        if (!contract) return 0;
-        
         let total = 0;
         for (const itemId of this.selectedItems) {
             const item = this.items.find(i => i.id === itemId);
             if (item && item.contractId === this.selectedContractId) {
-                total += this.calcItemAmount(item, contract);
+                total += this.calcItemAmount(item);
             }
         }
         return total;
@@ -1809,8 +1879,15 @@ const CalcModule = {
                 html += '<div class="list mb-15" id="itemsList">';
                 for (const item of items) {
                     const isChecked = this.isItemSelected(item.id);
+                    const paidPct = item.paidPercent || 0;
                     const targetPct = this.customPercents[item.id] !== undefined ? this.customPercents[item.id] : 100;
-                    const amount = this.calcItemAmount(item, contract);
+                    const amount = this.calcItemAmount(item);
+                    
+                    // Цвет бейджа оплаты
+                    let paidColor = 'var(--t3)';
+                    if (paidPct >= 100) paidColor = 'var(--success)';
+                    else if (paidPct >= 70) paidColor = 'var(--primary)';
+                    else if (paidPct > 0) paidColor = 'var(--warning)';
                     
                     html += `
                         <div class="calc-row" id="row_${item.id}" onclick="CalcModule.rowClick('${item.id}', event)">
@@ -1819,14 +1896,17 @@ const CalcModule = {
                                    ${isChecked ? 'checked' : ''}>
                             <div class="calc-row-content">
                                 <div class="calc-row-title">${item.name}</div>
-                                <div class="calc-row-subtitle">${item.code ? item.code + ' • ' : ''}${this.api.formatMoney(item.cost)}</div>
+                                <div class="calc-row-subtitle">
+                                    ${item.code ? item.code + ' • ' : ''}${this.api.formatMoney(item.cost)}
+                                    <span style="margin-left:6px;padding:2px 6px;background:${paidColor};color:white;border-radius:4px;font-size:11px;font-weight:600">${paidPct}%</span>
+                                </div>
                             </div>
                             <div class="calc-row-percent" onclick="event.stopPropagation()">
-                                <span>до</span>
+                                <span>→</span>
                                 <input type="number" class="percent-input" 
                                        id="pct_${item.id}"
                                        value="${targetPct}" 
-                                       min="0" max="100"
+                                       min="${paidPct}" max="100"
                                        onchange="CalcModule.changePercent('${item.id}', this.value)"
                                        onfocus="this.select()">
                                 <span>%</span>
@@ -1910,14 +1990,14 @@ const CalcModule = {
     
     // Изменение процента
     changePercent(itemId, value) {
-        this.customPercents[itemId] = Math.min(100, Math.max(0, parseFloat(value) || 100));
+        const item = this.items.find(i => i.id === itemId);
+        const minPct = item ? (item.paidPercent || 0) : 0;
+        this.customPercents[itemId] = Math.min(100, Math.max(minPct, parseFloat(value) || 100));
         
         // Обновляем сумму этой позиции
-        const contract = this.getSelectedContract();
-        const item = this.items.find(i => i.id === itemId);
-        if (contract && item) {
+        if (item) {
             const el = document.getElementById('amt_' + itemId);
-            if (el) el.textContent = this.api.formatMoney(this.calcItemAmount(item, contract));
+            if (el) el.textContent = this.api.formatMoney(this.calcItemAmount(item));
         }
         
         this.updateSummary();
@@ -1956,16 +2036,16 @@ const CalcModule = {
             return;
         }
         
-        const paidPct = contract.totalAmount > 0 ? (contract.paidAmount / contract.totalAmount * 100) : 0;
-        
+        // Собираем данные по каждому изделию
         const calcItems = selectedIds.map(id => {
             const item = this.items.find(i => i.id === id);
+            const paidPct = item.paidPercent || 0;
             const targetPct = this.customPercents[item.id] !== undefined ? this.customPercents[item.id] : 100;
             return {
                 ...item,
                 paidPercent: paidPct,
                 targetPercent: targetPct,
-                toCollect: this.calcItemAmount(item, contract)
+                toCollect: this.calcItemAmount(item)
             };
         });
         
@@ -1975,10 +2055,11 @@ const CalcModule = {
         let itemsTotal = calcItems.reduce((s, i) => s + i.toCollect, 0);
         const payType = contract.paymentType === 'cash' ? 'наличный расчет' : 'безналичный расчет';
         
-        let tg = `**Договор ${contract.number} ${payType}:**\n`;
+        let tg = `Договор ${contract.number} ${payType}:\n`;
         for (const item of calcItems) {
-            const note = item.targetPercent < 100 ? ` (до ${item.targetPercent}%)` : '';
-            tg += `${item.name}${note} = ${this.api.formatMoney(item.toCollect)}\n`;
+            const fromTo = item.paidPercent > 0 ? ` (${item.paidPercent}% → ${item.targetPercent}%)` : 
+                           (item.targetPercent < 100 ? ` (до ${item.targetPercent}%)` : '');
+            tg += `${item.name}${fromTo} = ${this.api.formatMoney(item.toCollect)}\n`;
         }
         
         let finalTotal = itemsTotal;
@@ -1987,7 +2068,7 @@ const CalcModule = {
             tg += `Итого: ${this.api.formatMoney(itemsTotal)} − ${contract.discount}% = ${this.api.formatMoney(itemsTotal - disc)}\n`;
             finalTotal = itemsTotal - disc;
         } else {
-            tg += `**Итого: ${this.api.formatMoney(itemsTotal)}**\n`;
+            tg += `Итого: ${this.api.formatMoney(itemsTotal)}\n`;
         }
         
         let svcTotal = 0;
@@ -2001,7 +2082,9 @@ const CalcModule = {
         }
         
         const grandTotal = finalTotal + svcTotal;
-        tg += `\n**Всего: ${this.api.formatMoney(grandTotal)}**`;
+        if (enabledSvc.length || contract.discount > 0) {
+            tg += `\nВсего: ${this.api.formatMoney(grandTotal)}`;
+        }
         
         // Сохраняем в историю
         await this.api.db.save('history', {
@@ -2012,14 +2095,15 @@ const CalcModule = {
             telegramText: tg
         });
         
-        // Результат
+        // Результат с детализацией по изделиям
         let resHtml = `<div class="section-title">${contract.number}</div><div class="card mb-15">`;
         for (const item of calcItems) {
+            const fromTo = item.paidPercent > 0 ? `${item.paidPercent}% → ${item.targetPercent}%` : `до ${item.targetPercent}%`;
             resHtml += `
                 <div class="stat-row">
                     <div>
                         <div style="font-weight:500">${item.name}</div>
-                        <div style="font-size:12px;color:var(--text-secondary)">${this.api.formatMoney(item.cost)} → до ${item.targetPercent}%</div>
+                        <div style="font-size:12px;color:var(--text-secondary)">${this.api.formatMoney(item.cost)} • ${fromTo}</div>
                     </div>
                     <span class="stat-value success">${this.api.formatMoney(item.toCollect)}</span>
                 </div>
@@ -2066,8 +2150,36 @@ const CalcModule = {
                     <button class="btn btn-secondary" style="flex:1" onclick="CalcModule.exportCSV()">📊 CSV</button>
                     <button class="btn btn-secondary" style="flex:1" onclick="CalcModule.exportPDF()">📄 PDF</button>
                 </div>
+                <div class="section-title" style="margin-top:20px">После получения оплаты</div>
+                <button class="btn btn-warning btn-block" onclick="CalcModule.confirmPayment()">✅ Зафиксировать оплату</button>
+                <div style="font-size:12px;color:var(--t2);text-align:center;margin-top:8px">
+                    Обновит % оплаты для выбранных изделий
+                </div>
             `
         });
+    },
+    
+    // Зафиксировать оплату — обновить paidPercent изделий
+    async confirmPayment() {
+        if (!this.lastResult) return;
+        
+        const { items } = this.lastResult;
+        
+        for (const calcItem of items) {
+            // Находим изделие в базе и обновляем его paidPercent
+            const item = await this.api.db.get('items', calcItem.id);
+            if (item) {
+                item.paidPercent = calcItem.targetPercent;
+                await this.api.db.save('items', item);
+            }
+        }
+        
+        this.api.closeModal();
+        this.api.showToast('✅ Оплата зафиксирована!', 'success');
+        
+        // Перезагружаем данные и перерисовываем
+        await this.loadData();
+        this.api.rerender();
     },
     
     copyText() {
