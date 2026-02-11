@@ -1,0 +1,1881 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Расчёт доплат">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#2563eb">
+    
+    <link rel="manifest" href="./manifest.json">
+    <title>Расчёт доплат</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --bg: #f1f5f9;
+            --card: #ffffff;
+            --text: #1e293b;
+            --text-secondary: #64748b;
+            --border: #e2e8f0;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --safe-top: env(safe-area-inset-top);
+            --safe-bottom: env(safe-area-inset-bottom);
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding-top: var(--safe-top);
+            padding-bottom: calc(70px + var(--safe-bottom));
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 15px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .header h1 { font-size: 24px; font-weight: 700; }
+        .header-subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+        
+        .content { padding: 15px; }
+        
+        .card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        
+        .card-title { font-size: 17px; font-weight: 600; margin-bottom: 8px; }
+        .card-text { font-size: 15px; color: var(--text-secondary); line-height: 1.4; }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:active { background: var(--primary-dark); transform: scale(0.98); }
+        .btn-secondary { background: var(--bg); color: var(--text); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
+        .btn-block { width: 100%; }
+        .btn-sm { padding: 8px 12px; font-size: 13px; }
+        
+        .input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 16px;
+            background: var(--card);
+            transition: border-color 0.2s;
+        }
+        
+        .input:focus { outline: none; border-color: var(--primary); }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+        
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        
+        .nav-bottom {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 0;
+            padding-bottom: calc(8px + var(--safe-bottom));
+            z-index: 100;
+        }
+        
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 5px 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 10px;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        
+        .nav-item.active { color: var(--primary); }
+        .nav-icon { font-size: 22px; margin-bottom: 2px; }
+        
+        .list {
+            background: var(--card);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .list-item {
+            display: flex;
+            align-items: center;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+        }
+        
+        .list-item:last-child { border-bottom: none; }
+        .list-item:active { background: var(--bg); }
+        .list-item-content { flex: 1; }
+        .list-item-title { font-size: 16px; font-weight: 500; }
+        .list-item-subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+        .list-item-value { font-size: 15px; font-weight: 600; color: var(--primary); text-align: right; }
+        .list-item-arrow { color: var(--text-secondary); font-size: 18px; margin-left: 10px; }
+        
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            display: none;
+            align-items: flex-end;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-overlay.active { display: flex; }
+        
+        .modal {
+            background: var(--card);
+            border-radius: 20px 20px 0 0;
+            width: 100%;
+            max-height: 90vh;
+            padding: 20px;
+            padding-bottom: calc(20px + var(--safe-bottom));
+            animation: slideUp 0.3s ease;
+            overflow-y: auto;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-title { font-size: 20px; font-weight: 700; }
+        
+        .modal-close {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: var(--bg);
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .toast {
+            position: fixed;
+            top: calc(20px + var(--safe-top));
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: var(--text);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 2000;
+            transition: transform 0.3s ease;
+        }
+        
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        
+        .empty-state { text-align: center; padding: 60px 20px; }
+        .empty-icon { font-size: 64px; margin-bottom: 16px; }
+        .empty-title { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+        .empty-text { font-size: 15px; color: var(--text-secondary); }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .stat-row:last-child { border-bottom: none; }
+        .stat-label { color: var(--text-secondary); font-size: 14px; }
+        .stat-value { font-weight: 600; font-size: 14px; }
+        .stat-value.primary { color: var(--primary); }
+        .stat-value.success { color: var(--success); }
+        .stat-value.danger { color: var(--danger); }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .badge-success { background: #dcfce7; color: #166534; }
+        .badge-warning { background: #fef3c7; color: #92400e; }
+        .badge-primary { background: #dbeafe; color: #1e40af; }
+        .badge-secondary { background: #f1f5f9; color: #475569; }
+        
+        .section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 20px 0 10px 0;
+        }
+        
+        .telegram-output {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin-bottom: 15px;
+        }
+        
+        .hidden { display: none !important; }
+        .mb-10 { margin-bottom: 10px; }
+        .mb-15 { margin-bottom: 15px; }
+        .mb-20 { margin-bottom: 20px; }
+        .mt-15 { margin-top: 15px; }
+        .text-center { text-align: center; }
+        .flex { display: flex; }
+        .flex-between { justify-content: space-between; }
+        .gap-10 { gap: 10px; }
+        
+        /* Селектор договора */
+        .contract-selector {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        
+        .contract-select {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid var(--primary);
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 500;
+            background: var(--card);
+            color: var(--text);
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%232563eb' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+        }
+        
+        .contract-info {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+        
+        .contract-info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            margin-bottom: 6px;
+        }
+        
+        .contract-info-row:last-child { margin-bottom: 0; }
+        
+        /* Строка расчёта - ИСПРАВЛЕНО */
+        .calc-row {
+            display: flex;
+            align-items: center;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            gap: 12px;
+            cursor: pointer;
+            transition: background 0.15s;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        .calc-row:active { background: var(--bg); }
+        .calc-row:last-child { border-bottom: none; }
+        
+        .calc-checkbox {
+            width: 24px;
+            height: 24px;
+            accent-color: var(--primary);
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        
+        .calc-row-content { 
+            flex: 1; 
+            min-width: 0;
+        }
+        
+        .calc-row-title {
+            font-size: 15px;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .calc-row-subtitle { font-size: 13px; color: var(--text-secondary); }
+        
+        .calc-row-percent {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        
+        .calc-row-percent span { font-size: 13px; color: var(--text-secondary); }
+        
+        .percent-input {
+            width: 55px;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 15px;
+            text-align: center;
+            background: var(--card);
+        }
+        
+        .percent-input:focus { outline: none; border-color: var(--primary); }
+        
+        .calc-row-result {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--success);
+            text-align: right;
+            min-width: 90px;
+            flex-shrink: 0;
+        }
+        
+        /* Сводка */
+        .summary-bar {
+            background: var(--primary);
+            color: white;
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .summary-text { font-size: 14px; opacity: 0.9; }
+        .summary-total { font-size: 20px; font-weight: 700; }
+        
+        /* Доп услуги */
+        .service-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        .service-row:active { background: var(--bg); }
+        
+        .service-row:last-child { border-bottom: none; }
+        
+        .service-checkbox {
+            width: 22px;
+            height: 22px;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+        
+        .service-row-content { flex: 1; }
+        .service-row-name { font-size: 15px; }
+        
+        .service-row-input {
+            width: 110px;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 15px;
+            text-align: right;
+        }
+        
+        select.input {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2364748b' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 35px;
+        }
+        
+        .payment-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .payment-item:last-child { border-bottom: none; }
+        .payment-info { flex: 1; }
+        .payment-date { font-size: 13px; color: var(--text-secondary); }
+        .payment-amount { font-size: 15px; font-weight: 600; color: var(--success); }
+        .payment-type { font-size: 11px; }
+        .payment-delete { color: var(--danger); font-size: 18px; cursor: pointer; padding: 5px; }
+        
+        .history-item {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+        }
+        
+        .history-item:last-child { border-bottom: none; }
+        .history-item:active { background: var(--bg); }
+        .history-date { font-size: 13px; color: var(--text-secondary); }
+        .history-contracts { font-size: 14px; font-weight: 500; margin: 4px 0; }
+        .history-total { font-size: 16px; font-weight: 600; color: var(--primary); }
+        
+        /* Быстрые кнопки процентов */
+        .quick-percent-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        
+        .quick-percent-buttons .btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 12px 8px;
+            line-height: 1.3;
+        }
+        
+        .quick-percent-buttons .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1 id="pageTitle">📋 Договоры</h1>
+        <div class="header-subtitle" id="pageSubtitle">Управление договорами</div>
+    </header>
+    
+    <main class="content" id="mainContent"></main>
+    
+    <nav class="nav-bottom" id="navBottom"></nav>
+    
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal" id="modalContent"></div>
+    </div>
+    
+    <div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════════
+// ЯДРО ПРИЛОЖЕНИЯ v2.1
+// ════════════════════════════════════════════════════════════════════════════
+
+class AppCore {
+    constructor(config = {}) {
+        this.config = {
+            dbName: config.dbName || 'ContractCalcDB',
+            dbVersion: config.dbVersion || 2
+        };
+        
+        this.modules = {};
+        this.activeModule = null;
+        this.db = null;
+        
+        this.dom = {
+            content: document.getElementById('mainContent'),
+            nav: document.getElementById('navBottom'),
+            title: document.getElementById('pageTitle'),
+            subtitle: document.getElementById('pageSubtitle'),
+            modal: document.getElementById('modalOverlay'),
+            modalContent: document.getElementById('modalContent'),
+            toast: document.getElementById('toast')
+        };
+    }
+    
+    async init() {
+        await this.initDatabase();
+        
+        for (const [name, module] of Object.entries(this.modules)) {
+            if (module.init) await module.init(this.api);
+        }
+        
+        this.renderNavigation();
+        
+        const firstModule = Object.keys(this.modules)[0];
+        if (firstModule) await this.activateModule(firstModule);
+        
+        this.registerServiceWorker();
+    }
+    
+    async initDatabase() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.config.dbName, this.config.dbVersion);
+            
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => { this.db = request.result; resolve(); };
+            
+            request.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                
+                if (!db.objectStoreNames.contains('contracts')) {
+                    const s = db.createObjectStore('contracts', { keyPath: 'id' });
+                    s.createIndex('created', 'created');
+                }
+                if (!db.objectStoreNames.contains('items')) {
+                    const s = db.createObjectStore('items', { keyPath: 'id' });
+                    s.createIndex('contractId', 'contractId');
+                }
+                if (!db.objectStoreNames.contains('payments')) {
+                    const s = db.createObjectStore('payments', { keyPath: 'id' });
+                    s.createIndex('contractId', 'contractId');
+                }
+                if (!db.objectStoreNames.contains('history')) {
+                    const s = db.createObjectStore('history', { keyPath: 'id' });
+                    s.createIndex('created', 'created');
+                }
+            };
+        });
+    }
+    
+    async dbSave(store, data) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction(store, 'readwrite');
+            const req = tx.objectStore(store).put(data);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    }
+    
+    async dbGet(store, id) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction(store, 'readonly');
+            const req = tx.objectStore(store).get(id);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    }
+    
+    async dbGetAll(store, indexName = null, query = null) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction(store, 'readonly');
+            const s = tx.objectStore(store);
+            const target = indexName ? s.index(indexName) : s;
+            const req = query !== null ? target.getAll(query) : target.getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => reject(req.error);
+        });
+    }
+    
+    async dbDelete(store, id) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction(store, 'readwrite');
+            const req = tx.objectStore(store).delete(id);
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
+        });
+    }
+    
+    registerModule(name, module) {
+        this.modules[name] = module;
+    }
+    
+    async activateModule(name) {
+        const module = this.modules[name];
+        if (!module) return;
+        
+        this.activeModule = name;
+        
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.toggle('active', item.dataset.module === name);
+        });
+        
+        this.dom.title.textContent = module.icon ? `${module.icon} ${module.name}` : module.name;
+        this.dom.subtitle.textContent = module.subtitle || '';
+        
+        // Сначала загружаем данные
+        if (module.activate) await module.activate();
+        
+        // Потом рендерим
+        if (module.render) this.dom.content.innerHTML = module.render();
+    }
+    
+    renderNavigation() {
+        this.dom.nav.innerHTML = Object.entries(this.modules).map(([name, m]) => `
+            <div class="nav-item" data-module="${name}" onclick="App.activateModule('${name}')">
+                <span class="nav-icon">${m.icon || '📄'}</span>
+                <span>${m.name}</span>
+            </div>
+        `).join('');
+    }
+    
+    // Полная перезагрузка модуля
+    async refresh() {
+        if (this.activeModule) await this.activateModule(this.activeModule);
+    }
+    
+    // Только перерисовка без загрузки данных
+    rerender() {
+        const m = this.modules[this.activeModule];
+        if (m?.render) this.dom.content.innerHTML = m.render();
+    }
+    
+    showModal(config) {
+        this.dom.modalContent.innerHTML = `
+            <div class="modal-header">
+                <span class="modal-title">${config.title || ''}</span>
+                <button class="modal-close" onclick="App.closeModal()">✕</button>
+            </div>
+            <div class="modal-body">${config.body || ''}</div>
+        `;
+        this.dom.modal.classList.add('active');
+    }
+    
+    closeModal() { this.dom.modal.classList.remove('active'); }
+    
+    showToast(msg, type = '') {
+        this.dom.toast.textContent = msg;
+        this.dom.toast.className = 'toast show ' + type;
+        setTimeout(() => this.dom.toast.classList.remove('show'), 2500);
+    }
+    
+    generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
+    formatMoney(n) { return new Intl.NumberFormat('ru-RU').format(Math.round(n)) + ' ₽'; }
+    formatPercent(n) { return n.toFixed(1).replace('.0', '') + '%'; }
+    formatDate(d) { return new Date(d).toLocaleDateString('ru-RU'); }
+    formatDateTime(d) { return new Date(d).toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }); }
+    
+    registerServiceWorker() {
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+    }
+    
+    get api() {
+        return {
+            db: {
+                save: (s, d) => this.dbSave(s, d),
+                get: (s, id) => this.dbGet(s, id),
+                getAll: (s, i, q) => this.dbGetAll(s, i, q),
+                delete: (s, id) => this.dbDelete(s, id)
+            },
+            showModal: c => this.showModal(c),
+            closeModal: () => this.closeModal(),
+            showToast: (m, t) => this.showToast(m, t),
+            refresh: () => this.refresh(),
+            rerender: () => this.rerender(),
+            generateId: () => this.generateId(),
+            formatMoney: n => this.formatMoney(n),
+            formatPercent: n => this.formatPercent(n),
+            formatDate: d => this.formatDate(d),
+            formatDateTime: d => this.formatDateTime(d)
+        };
+    }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// МОДУЛЬ: ДОГОВОРЫ
+// ════════════════════════════════════════════════════════════════════════════
+
+const ContractsModule = {
+    name: 'Договоры',
+    icon: '📋',
+    subtitle: 'Список договоров',
+    api: null,
+    contracts: [],
+    
+    async init(api) { this.api = api; },
+    
+    async loadContracts() {
+        this.contracts = await this.api.db.getAll('contracts');
+        this.contracts.sort((a, b) => new Date(b.created) - new Date(a.created));
+        
+        for (const c of this.contracts) {
+            const payments = await this.api.db.getAll('payments', 'contractId', c.id);
+            c.paidAmount = payments.reduce((s, p) => s + p.amount, 0);
+        }
+    },
+    
+    render() {
+        if (this.contracts.length === 0) {
+            return `
+                <div class="empty-state">
+                    <div class="empty-icon">📋</div>
+                    <div class="empty-title">Нет договоров</div>
+                    <div class="empty-text">Добавьте первый договор</div>
+                </div>
+                <div class="text-center">
+                    <button class="btn btn-primary" onclick="ContractsModule.showAddModal()">+ Добавить договор</button>
+                </div>
+            `;
+        }
+        
+        const html = this.contracts.map(c => {
+            const paidPct = c.totalAmount > 0 ? (c.paidAmount / c.totalAmount * 100) : 0;
+            const remain = c.totalAmount - c.paidAmount;
+            const badge = c.paymentType === 'cash' ? '<span class="badge badge-success">нал</span>' : '<span class="badge badge-primary">безнал</span>';
+            
+            return `
+                <div class="list-item" onclick="ContractsModule.showContract('${c.id}')">
+                    <div class="list-item-content">
+                        <div class="list-item-title">${c.number} ${badge}</div>
+                        <div class="list-item-subtitle">${c.customer || '—'} • ${this.api.formatPercent(paidPct)} оплачено</div>
+                    </div>
+                    <div class="list-item-value">${this.api.formatMoney(remain)}</div>
+                    <span class="list-item-arrow">›</span>
+                </div>
+            `;
+        }).join('');
+        
+        return `
+            <div class="flex flex-between mb-15">
+                <span style="color:var(--text-secondary)">Всего: ${this.contracts.length}</span>
+                <button class="btn btn-primary btn-sm" onclick="ContractsModule.showAddModal()">+ Добавить</button>
+            </div>
+            <div class="list">${html}</div>
+        `;
+    },
+    
+    showAddModal() {
+        this.api.showModal({
+            title: 'Новый договор',
+            body: `
+                <div class="form-group">
+                    <label class="form-label">Номер договора</label>
+                    <input type="text" class="input" id="cNumber" placeholder="25-40">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Заказчик</label>
+                    <input type="text" class="input" id="cCustomer" placeholder="Заренков Д.В.">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Сумма договора (100%)</label>
+                    <input type="number" class="input" id="cTotal" placeholder="6576896">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Тип оплаты</label>
+                        <select class="input" id="cPayType">
+                            <option value="bank">Безналичный</option>
+                            <option value="cash">Наличный</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Скидка %</label>
+                        <input type="number" class="input" id="cDiscount" value="0">
+                    </div>
+                </div>
+                <button class="btn btn-primary btn-block" onclick="ContractsModule.saveContract()">Сохранить</button>
+            `
+        });
+    },
+    
+    async saveContract() {
+        const number = document.getElementById('cNumber').value.trim();
+        const customer = document.getElementById('cCustomer').value.trim();
+        const totalAmount = parseFloat(document.getElementById('cTotal').value) || 0;
+        const paymentType = document.getElementById('cPayType').value;
+        const discount = parseFloat(document.getElementById('cDiscount').value) || 0;
+        
+        if (!number || !totalAmount) {
+            this.api.showToast('Заполните поля', 'error');
+            return;
+        }
+        
+        await this.api.db.save('contracts', {
+            id: this.api.generateId(),
+            number, customer, totalAmount, paidAmount: 0, paymentType, discount,
+            created: new Date().toISOString()
+        });
+        
+        this.api.closeModal();
+        this.api.showToast('✅ Договор добавлен', 'success');
+        await this.api.refresh();
+    },
+    
+    async showContract(id) {
+        const c = await this.api.db.get('contracts', id);
+        if (!c) return;
+        
+        const items = await this.api.db.getAll('items', 'contractId', id);
+        const payments = await this.api.db.getAll('payments', 'contractId', id);
+        const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
+        const paidPct = c.totalAmount > 0 ? (totalPaid / c.totalAmount * 100) : 0;
+        const remain = c.totalAmount - totalPaid;
+        
+        const paymentsHtml = payments.length ? payments.map(p => `
+            <div class="payment-item">
+                <div class="payment-info">
+                    <div class="payment-date">${this.api.formatDate(p.date)}</div>
+                    <div class="payment-amount">+${this.api.formatMoney(p.amount)}</div>
+                    <div class="payment-type">${p.type === 'cash' ? 'нал' : 'безнал'}</div>
+                </div>
+                <span class="payment-delete" onclick="ContractsModule.deletePayment('${p.id}','${id}')">🗑️</span>
+            </div>
+        `).join('') : '<div style="padding:15px;text-align:center;color:var(--text-secondary)">Нет платежей</div>';
+        
+        const itemsHtml = items.length ? items.map(i => `
+            <div class="stat-row">
+                <div>
+                    <div style="font-weight:500">${i.name}</div>
+                    <div style="font-size:12px;color:var(--text-secondary)">${i.code||''}</div>
+                </div>
+                <span style="font-weight:600">${this.api.formatMoney(i.cost)}</span>
+            </div>
+        `).join('') : '<div style="padding:15px;text-align:center;color:var(--text-secondary)">Нет позиций</div>';
+        
+        this.api.showModal({
+            title: c.number,
+            body: `
+                <div class="card mb-15">
+                    <div class="stat-row"><span class="stat-label">Заказчик</span><span class="stat-value">${c.customer||'—'}</span></div>
+                    <div class="stat-row"><span class="stat-label">Сумма договора</span><span class="stat-value">${this.api.formatMoney(c.totalAmount)}</span></div>
+                    <div class="stat-row"><span class="stat-label">Тип оплаты</span><span class="stat-value">${c.paymentType==='cash'?'Наличный':'Безналичный'}</span></div>
+                    <div class="stat-row"><span class="stat-label">Скидка</span><span class="stat-value">${c.discount||0}%</span></div>
+                    <div class="stat-row"><span class="stat-label">Оплачено</span><span class="stat-value primary">${this.api.formatMoney(totalPaid)} (${this.api.formatPercent(paidPct)})</span></div>
+                    <div class="stat-row"><span class="stat-label">Остаток</span><span class="stat-value success">${this.api.formatMoney(remain)}</span></div>
+                </div>
+                <div class="section-title">Оплаты</div>
+                <div class="card mb-15">${paymentsHtml}</div>
+                <button class="btn btn-success btn-block mb-15" onclick="ContractsModule.showAddPayment('${id}')">+ Добавить оплату</button>
+                <div class="section-title">Позиции (${items.length})</div>
+                <div class="card mb-15">${itemsHtml}</div>
+                <div class="flex gap-10 mb-10">
+                    <button class="btn btn-primary" style="flex:1" onclick="ContractsModule.addItem('${id}')">+ Позиция</button>
+                    <button class="btn btn-secondary" style="flex:1" onclick="ContractsModule.editContract('${id}')">✏️ Изменить</button>
+                </div>
+                <button class="btn btn-danger btn-block" onclick="ContractsModule.deleteContract('${id}')">🗑️ Удалить договор</button>
+            `
+        });
+    },
+    
+    showAddPayment(contractId) {
+        // Находим договор для расчётов
+        const contract = this.contracts.find(c => c.id === contractId);
+        if (!contract) return;
+        
+        const paidAmount = contract.paidAmount || 0;
+        const paidPercent = contract.totalAmount > 0 ? (paidAmount / contract.totalAmount * 100) : 0;
+        const remainAmount = contract.totalAmount - paidAmount;
+        
+        // Рассчитываем суммы для быстрых кнопок
+        const calcToPercent = (targetPct) => {
+            const targetAmount = contract.totalAmount * targetPct / 100;
+            return Math.max(0, targetAmount - paidAmount);
+        };
+        
+        this.api.showModal({
+            title: 'Добавить оплату',
+            body: `
+                <div class="card mb-15" style="background: var(--bg)">
+                    <div class="stat-row">
+                        <span class="stat-label">Сумма договора</span>
+                        <span class="stat-value">${this.api.formatMoney(contract.totalAmount)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Оплачено</span>
+                        <span class="stat-value primary">${this.api.formatMoney(paidAmount)} (${this.api.formatPercent(paidPercent)})</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Остаток до 100%</span>
+                        <span class="stat-value success">${this.api.formatMoney(remainAmount)}</span>
+                    </div>
+                </div>
+                
+                <div class="section-title">Быстрый выбор</div>
+                <div class="quick-percent-buttons mb-15">
+                    <button class="btn btn-secondary btn-sm" onclick="ContractsModule.setPaymentPercent(10, ${contract.totalAmount}, ${paidAmount})" ${paidPercent >= 10 ? 'disabled' : ''}>
+                        до 10% <span style="font-size:11px;opacity:0.7">${this.api.formatMoney(calcToPercent(10))}</span>
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="ContractsModule.setPaymentPercent(50, ${contract.totalAmount}, ${paidAmount})" ${paidPercent >= 50 ? 'disabled' : ''}>
+                        до 50% <span style="font-size:11px;opacity:0.7">${this.api.formatMoney(calcToPercent(50))}</span>
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="ContractsModule.setPaymentPercent(70, ${contract.totalAmount}, ${paidAmount})" ${paidPercent >= 70 ? 'disabled' : ''}>
+                        до 70% <span style="font-size:11px;opacity:0.7">${this.api.formatMoney(calcToPercent(70))}</span>
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="ContractsModule.setPaymentPercent(100, ${contract.totalAmount}, ${paidAmount})" ${paidPercent >= 100 ? 'disabled' : ''}>
+                        до 100% <span style="font-size:11px;opacity:0.7">${this.api.formatMoney(calcToPercent(100))}</span>
+                    </button>
+                </div>
+                
+                <div class="section-title">Или введите вручную</div>
+                <div class="form-row mb-15">
+                    <div class="form-group" style="margin-bottom:0">
+                        <label class="form-label">До % от договора</label>
+                        <input type="number" class="input" id="payPercent" placeholder="${Math.ceil(paidPercent)}" 
+                               min="${Math.ceil(paidPercent)}" max="100"
+                               onchange="ContractsModule.calcPaymentFromPercent(${contract.totalAmount}, ${paidAmount})">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0">
+                        <label class="form-label">Сумма оплаты</label>
+                        <input type="number" class="input" id="payAmount" placeholder="0"
+                               onchange="ContractsModule.calcPercentFromPayment(${contract.totalAmount}, ${paidAmount})">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Дата</label>
+                        <input type="date" class="input" id="payDate" value="${new Date().toISOString().split('T')[0]}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Тип</label>
+                        <select class="input" id="payType">
+                            <option value="bank">Безналичный</option>
+                            <option value="cash">Наличный</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button class="btn btn-success btn-block" onclick="ContractsModule.savePayment('${contractId}')">
+                    💰 Добавить оплату
+                </button>
+            `
+        });
+    },
+    
+    // Установить сумму по целевому проценту (быстрые кнопки)
+    setPaymentPercent(targetPercent, totalAmount, paidAmount) {
+        const targetAmount = totalAmount * targetPercent / 100;
+        const paymentAmount = Math.max(0, targetAmount - paidAmount);
+        
+        document.getElementById('payPercent').value = targetPercent;
+        document.getElementById('payAmount').value = Math.round(paymentAmount);
+    },
+    
+    // Рассчитать сумму по введённому проценту
+    calcPaymentFromPercent(totalAmount, paidAmount) {
+        const targetPercent = parseFloat(document.getElementById('payPercent').value) || 0;
+        const currentPercent = totalAmount > 0 ? (paidAmount / totalAmount * 100) : 0;
+        
+        if (targetPercent <= currentPercent) {
+            document.getElementById('payAmount').value = '';
+            return;
+        }
+        
+        const targetAmount = totalAmount * targetPercent / 100;
+        const paymentAmount = Math.max(0, targetAmount - paidAmount);
+        document.getElementById('payAmount').value = Math.round(paymentAmount);
+    },
+    
+    // Рассчитать процент по введённой сумме
+    calcPercentFromPayment(totalAmount, paidAmount) {
+        const paymentAmount = parseFloat(document.getElementById('payAmount').value) || 0;
+        const newTotal = paidAmount + paymentAmount;
+        const newPercent = totalAmount > 0 ? (newTotal / totalAmount * 100) : 0;
+        document.getElementById('payPercent').value = Math.round(newPercent * 10) / 10;
+    },
+    
+    async savePayment(contractId) {
+        const amount = parseFloat(document.getElementById('payAmount').value) || 0;
+        if (!amount) { this.api.showToast('Введите сумму', 'error'); return; }
+        
+        await this.api.db.save('payments', {
+            id: this.api.generateId(),
+            contractId,
+            amount,
+            date: document.getElementById('payDate').value || new Date().toISOString(),
+            type: document.getElementById('payType').value,
+            created: new Date().toISOString()
+        });
+        
+        // Обновляем данные договоров
+        await this.loadContracts();
+        
+        // Обновляем главную страницу за модалом
+        this.api.rerender();
+        
+        this.api.showToast('✅ Оплата добавлена', 'success');
+        this.showContract(contractId);
+    },
+    
+    async deletePayment(paymentId, contractId) {
+        if (!confirm('Удалить оплату?')) return;
+        await this.api.db.delete('payments', paymentId);
+        
+        // Обновляем данные договоров
+        await this.loadContracts();
+        
+        // Обновляем главную страницу за модалом
+        this.api.rerender();
+        
+        this.api.showToast('🗑️ Удалено', 'success');
+        this.showContract(contractId);
+    },
+    
+    async editContract(id) {
+        const c = await this.api.db.get('contracts', id);
+        if (!c) return;
+        
+        this.api.showModal({
+            title: 'Редактировать',
+            body: `
+                <div class="form-group">
+                    <label class="form-label">Номер</label>
+                    <input type="text" class="input" id="eNumber" value="${c.number}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Заказчик</label>
+                    <input type="text" class="input" id="eCustomer" value="${c.customer||''}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Сумма (100%)</label>
+                    <input type="number" class="input" id="eTotal" value="${c.totalAmount}">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Тип</label>
+                        <select class="input" id="ePayType">
+                            <option value="bank" ${c.paymentType!=='cash'?'selected':''}>Безналичный</option>
+                            <option value="cash" ${c.paymentType==='cash'?'selected':''}>Наличный</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Скидка %</label>
+                        <input type="number" class="input" id="eDiscount" value="${c.discount||0}">
+                    </div>
+                </div>
+                <button class="btn btn-primary btn-block" onclick="ContractsModule.updateContract('${id}')">Сохранить</button>
+            `
+        });
+    },
+    
+    async updateContract(id) {
+        const c = await this.api.db.get('contracts', id);
+        c.number = document.getElementById('eNumber').value.trim();
+        c.customer = document.getElementById('eCustomer').value.trim();
+        c.totalAmount = parseFloat(document.getElementById('eTotal').value) || 0;
+        c.paymentType = document.getElementById('ePayType').value;
+        c.discount = parseFloat(document.getElementById('eDiscount').value) || 0;
+        
+        await this.api.db.save('contracts', c);
+        this.api.closeModal();
+        this.api.showToast('✅ Сохранено', 'success');
+        await this.api.refresh();
+    },
+    
+    addItem(contractId) {
+        this.api.showModal({
+            title: 'Добавить позицию',
+            body: `
+                <div class="form-group">
+                    <label class="form-label">Код</label>
+                    <input type="text" class="input" id="iCode" placeholder="25-40-01">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Наименование</label>
+                    <input type="text" class="input" id="iName" placeholder="Стеллаж-стол">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Стоимость (100%)</label>
+                    <input type="number" class="input" id="iCost" placeholder="338700">
+                </div>
+                <button class="btn btn-primary btn-block" onclick="ContractsModule.saveItem('${contractId}')">Сохранить</button>
+            `
+        });
+    },
+    
+    async saveItem(contractId) {
+        const name = document.getElementById('iName').value.trim();
+        const cost = parseFloat(document.getElementById('iCost').value) || 0;
+        if (!name || !cost) { this.api.showToast('Заполните поля', 'error'); return; }
+        
+        await this.api.db.save('items', {
+            id: this.api.generateId(),
+            contractId,
+            code: document.getElementById('iCode').value.trim(),
+            name, cost,
+            created: new Date().toISOString()
+        });
+        
+        this.api.showToast('✅ Позиция добавлена', 'success');
+        this.showContract(contractId);
+    },
+    
+    async deleteContract(id) {
+        if (!confirm('Удалить договор и все данные?')) return;
+        
+        const items = await this.api.db.getAll('items', 'contractId', id);
+        for (const i of items) await this.api.db.delete('items', i.id);
+        
+        const payments = await this.api.db.getAll('payments', 'contractId', id);
+        for (const p of payments) await this.api.db.delete('payments', p.id);
+        
+        await this.api.db.delete('contracts', id);
+        this.api.closeModal();
+        this.api.showToast('🗑️ Удалено', 'success');
+        await this.api.refresh();
+    },
+    
+    async activate() { await this.loadContracts(); }
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// МОДУЛЬ: РАСЧЁТ - ПОЛНОСТЬЮ ПЕРЕПИСАН
+// ════════════════════════════════════════════════════════════════════════════
+
+const CalcModule = {
+    name: 'Расчёт',
+    icon: '🧮',
+    subtitle: 'Расчёт доплат',
+    api: null,
+    
+    // Данные из БД
+    contracts: [],
+    items: [],
+    
+    // Состояние модуля (используем массив вместо Set)
+    selectedContractId: null,
+    selectedItems: [],  // массив ID выбранных позиций
+    customPercents: {},
+    services: {
+        delivery: { name: 'Доставка', enabled: false, amount: 50000 },
+        unloading: { name: 'Разгрузка', enabled: false, amount: 10000 },
+        mounting: { name: 'Монтаж', enabled: false, amount: 0 }
+    },
+    lastResult: null,
+    
+    async init(api) { this.api = api; },
+    
+    // Загрузка данных из БД
+    async loadData() {
+        console.log('CalcModule: загрузка данных...');
+        this.contracts = await this.api.db.getAll('contracts');
+        this.contracts.sort((a, b) => new Date(b.created) - new Date(a.created));
+        this.items = await this.api.db.getAll('items');
+        
+        // Подгружаем платежи для расчёта процента оплаты
+        for (const c of this.contracts) {
+            const payments = await this.api.db.getAll('payments', 'contractId', c.id);
+            c.paidAmount = payments.reduce((s, p) => s + p.amount, 0);
+        }
+        
+        console.log('CalcModule: загружено', this.contracts.length, 'договоров,', this.items.length, 'позиций');
+        
+        // Если выбранный договор удалён — сбрасываем
+        if (this.selectedContractId && !this.contracts.find(c => c.id === this.selectedContractId)) {
+            this.selectedContractId = null;
+            this.selectedItems = [];
+            this.customPercents = {};
+        }
+        
+        // Очищаем выбранные позиции которых больше нет
+        this.selectedItems = this.selectedItems.filter(id => this.items.find(i => i.id === id));
+    },
+    
+    // Позиции текущего договора
+    getContractItems() {
+        if (!this.selectedContractId) return [];
+        return this.items.filter(i => i.contractId === this.selectedContractId);
+    },
+    
+    // Текущий договор
+    getSelectedContract() {
+        return this.contracts.find(c => c.id === this.selectedContractId);
+    },
+    
+    // Проверка выбрана ли позиция
+    isItemSelected(itemId) {
+        return this.selectedItems.indexOf(itemId) !== -1;
+    },
+    
+    // Расчёт суммы к доплате для позиции
+    calcItemAmount(item, contract) {
+        const paidPct = contract.totalAmount > 0 ? (contract.paidAmount / contract.totalAmount * 100) : 0;
+        const targetPct = this.customPercents[item.id] !== undefined ? this.customPercents[item.id] : 100;
+        const remainPct = targetPct - paidPct;
+        return remainPct > 0 ? item.cost * remainPct / 100 : 0;
+    },
+    
+    // Итого по выбранным позициям
+    calcTotal() {
+        const contract = this.getSelectedContract();
+        if (!contract) return 0;
+        
+        let total = 0;
+        for (const itemId of this.selectedItems) {
+            const item = this.items.find(i => i.id === itemId);
+            if (item && item.contractId === this.selectedContractId) {
+                total += this.calcItemAmount(item, contract);
+            }
+        }
+        return total;
+    },
+    
+    render() {
+        if (this.contracts.length === 0) {
+            return `
+                <div class="empty-state">
+                    <div class="empty-icon">🧮</div>
+                    <div class="empty-title">Нет договоров</div>
+                    <div class="empty-text">Сначала добавьте договор</div>
+                </div>
+            `;
+        }
+        
+        // Селектор договора
+        const options = this.contracts.map(c => {
+            const paidPct = c.totalAmount > 0 ? (c.paidAmount / c.totalAmount * 100) : 0;
+            const sel = c.id === this.selectedContractId ? 'selected' : '';
+            return `<option value="${c.id}" ${sel}>${c.number} — ${this.api.formatPercent(paidPct)} оплачено</option>`;
+        }).join('');
+        
+        let html = `
+            <div class="contract-selector">
+                <select class="contract-select" id="contractSelect" onchange="CalcModule.selectContract(this.value)">
+                    <option value="">— Выберите договор —</option>
+                    ${options}
+                </select>
+        `;
+        
+        // Инфо о договоре
+        const contract = this.getSelectedContract();
+        if (contract) {
+            const paidPct = contract.totalAmount > 0 ? (contract.paidAmount / contract.totalAmount * 100) : 0;
+            const discBadge = contract.discount > 0 ? `<span class="badge badge-warning">скидка ${contract.discount}%</span>` : '';
+            html += `
+                <div class="contract-info">
+                    <div class="contract-info-row"><span>Заказчик:</span><strong>${contract.customer||'—'}</strong></div>
+                    <div class="contract-info-row"><span>Сумма:</span><strong>${this.api.formatMoney(contract.totalAmount)}</strong></div>
+                    <div class="contract-info-row"><span>Оплачено:</span><strong style="color:var(--primary)">${this.api.formatPercent(paidPct)}</strong></div>
+                    <div class="contract-info-row"><span>Остаток:</span><strong style="color:var(--success)">${this.api.formatPercent(100 - paidPct)} ${discBadge}</strong></div>
+                </div>
+            `;
+        }
+        html += '</div>';
+        
+        // Позиции выбранного договора
+        if (this.selectedContractId) {
+            const items = this.getContractItems();
+            
+            if (items.length === 0) {
+                html += `
+                    <div class="card text-center">
+                        <div style="font-size:40px">📦</div>
+                        <div style="font-weight:600;margin:10px 0">Нет позиций</div>
+                        <div style="color:var(--text-secondary)">Добавьте позиции в договор на вкладке "Договоры"</div>
+                    </div>
+                `;
+            } else {
+                // Сводка - только позиции текущего договора
+                const contractItemIds = items.map(i => i.id);
+                const selectedCount = this.selectedItems.filter(id => contractItemIds.includes(id)).length;
+                const total = this.calcTotal();
+                
+                html += `
+                    <div class="summary-bar" id="summaryBar">
+                        <div class="summary-text" id="summaryText">Выбрано: ${selectedCount} из ${items.length}</div>
+                        <div class="summary-total" id="summaryTotal">${this.api.formatMoney(total)}</div>
+                    </div>
+                `;
+                
+                // Список позиций
+                html += '<div class="list mb-15" id="itemsList">';
+                for (const item of items) {
+                    const isChecked = this.isItemSelected(item.id);
+                    const targetPct = this.customPercents[item.id] !== undefined ? this.customPercents[item.id] : 100;
+                    const amount = this.calcItemAmount(item, contract);
+                    
+                    html += `
+                        <div class="calc-row" id="row_${item.id}" onclick="CalcModule.rowClick('${item.id}', event)">
+                            <input type="checkbox" class="calc-checkbox" 
+                                   id="chk_${item.id}" 
+                                   ${isChecked ? 'checked' : ''}>
+                            <div class="calc-row-content">
+                                <div class="calc-row-title">${item.name}</div>
+                                <div class="calc-row-subtitle">${item.code ? item.code + ' • ' : ''}${this.api.formatMoney(item.cost)}</div>
+                            </div>
+                            <div class="calc-row-percent" onclick="event.stopPropagation()">
+                                <span>до</span>
+                                <input type="number" class="percent-input" 
+                                       id="pct_${item.id}"
+                                       value="${targetPct}" 
+                                       min="0" max="100"
+                                       onchange="CalcModule.changePercent('${item.id}', this.value)"
+                                       onfocus="this.select()">
+                                <span>%</span>
+                            </div>
+                            <div class="calc-row-result" id="amt_${item.id}">${this.api.formatMoney(amount)}</div>
+                        </div>
+                    `;
+                }
+                html += '</div>';
+                
+                // Доп услуги
+                html += `<div class="section-title">Доп. услуги</div><div class="card mb-15">`;
+                for (const [key, svc] of Object.entries(this.services)) {
+                    html += `
+                        <div class="service-row" onclick="CalcModule.serviceRowClick('${key}', event)">
+                            <input type="checkbox" class="service-checkbox" 
+                                   id="svc_${key}" 
+                                   ${svc.enabled ? 'checked' : ''}>
+                            <div class="service-row-content"><div class="service-row-name">${svc.name}</div></div>
+                            <input type="number" class="service-row-input" 
+                                   id="svcAmt_${key}"
+                                   value="${svc.amount}" 
+                                   onclick="event.stopPropagation()"
+                                   onchange="CalcModule.changeServiceAmount('${key}', this.value)">
+                            <span style="color:var(--text-secondary)">₽</span>
+                        </div>
+                    `;
+                }
+                html += '</div>';
+                
+                // Кнопка расчёта
+                html += `<button class="btn btn-success btn-block" onclick="CalcModule.calculate()">📊 Рассчитать</button>`;
+            }
+        }
+        
+        return html;
+    },
+    
+    // ═══════ ОБРАБОТЧИКИ ═══════
+    
+    // Выбор договора
+    selectContract(contractId) {
+        console.log('selectContract:', contractId);
+        this.selectedContractId = contractId || null;
+        this.selectedItems = [];  // Сбрасываем выбранные позиции
+        this.customPercents = {};
+        this.api.rerender();
+    },
+    
+    // Клик по строке позиции
+    rowClick(itemId, event) {
+        // Переключаем состояние в массиве
+        const idx = this.selectedItems.indexOf(itemId);
+        if (idx === -1) {
+            this.selectedItems.push(itemId);
+        } else {
+            this.selectedItems.splice(idx, 1);
+        }
+        
+        // Обновляем чекбокс
+        const checkbox = document.getElementById('chk_' + itemId);
+        if (checkbox) {
+            checkbox.checked = this.selectedItems.indexOf(itemId) !== -1;
+        }
+        
+        console.log('rowClick:', itemId, 'selected:', this.selectedItems.length);
+        
+        // Обновляем сводку
+        this.updateSummary();
+    },
+    
+    // Клик по строке услуги
+    serviceRowClick(key, event) {
+        this.services[key].enabled = !this.services[key].enabled;
+        
+        const checkbox = document.getElementById('svc_' + key);
+        if (checkbox) {
+            checkbox.checked = this.services[key].enabled;
+        }
+    },
+    
+    // Изменение процента
+    changePercent(itemId, value) {
+        this.customPercents[itemId] = Math.min(100, Math.max(0, parseFloat(value) || 100));
+        
+        // Обновляем сумму этой позиции
+        const contract = this.getSelectedContract();
+        const item = this.items.find(i => i.id === itemId);
+        if (contract && item) {
+            const el = document.getElementById('amt_' + itemId);
+            if (el) el.textContent = this.api.formatMoney(this.calcItemAmount(item, contract));
+        }
+        
+        this.updateSummary();
+    },
+    
+    // Изменение суммы услуги
+    changeServiceAmount(key, value) {
+        this.services[key].amount = parseFloat(value) || 0;
+    },
+    
+    // Обновление сводки без перерисовки
+    updateSummary() {
+        const items = this.getContractItems();
+        const contractItemIds = items.map(i => i.id);
+        const selectedCount = this.selectedItems.filter(id => contractItemIds.includes(id)).length;
+        const total = this.calcTotal();
+        
+        const textEl = document.getElementById('summaryText');
+        const totalEl = document.getElementById('summaryTotal');
+        
+        if (textEl) textEl.textContent = `Выбрано: ${selectedCount} из ${items.length}`;
+        if (totalEl) totalEl.textContent = this.api.formatMoney(total);
+    },
+    
+    // ═══════ РАСЧЁТ ═══════
+    
+    async calculate() {
+        const contract = this.getSelectedContract();
+        if (!contract) return;
+        
+        const items = this.getContractItems();
+        const selectedIds = [...this.selectedItems].filter(id => items.find(i => i.id === id));
+        
+        if (selectedIds.length === 0) {
+            this.api.showToast('Выберите позиции', 'error');
+            return;
+        }
+        
+        const paidPct = contract.totalAmount > 0 ? (contract.paidAmount / contract.totalAmount * 100) : 0;
+        
+        const calcItems = selectedIds.map(id => {
+            const item = this.items.find(i => i.id === id);
+            const targetPct = this.customPercents[item.id] !== undefined ? this.customPercents[item.id] : 100;
+            return {
+                ...item,
+                paidPercent: paidPct,
+                targetPercent: targetPct,
+                toCollect: this.calcItemAmount(item, contract)
+            };
+        });
+        
+        this.lastResult = { contract, items: calcItems, services: JSON.parse(JSON.stringify(this.services)) };
+        
+        // Текст для Telegram
+        let itemsTotal = calcItems.reduce((s, i) => s + i.toCollect, 0);
+        const payType = contract.paymentType === 'cash' ? 'наличный расчет' : 'безналичный расчет';
+        
+        let tg = `**Договор ${contract.number} ${payType}:**\n`;
+        for (const item of calcItems) {
+            const note = item.targetPercent < 100 ? ` (до ${item.targetPercent}%)` : '';
+            tg += `${item.name}${note} = ${this.api.formatMoney(item.toCollect)}\n`;
+        }
+        
+        let finalTotal = itemsTotal;
+        if (contract.discount > 0) {
+            const disc = itemsTotal * contract.discount / 100;
+            tg += `Итого: ${this.api.formatMoney(itemsTotal)} − ${contract.discount}% = ${this.api.formatMoney(itemsTotal - disc)}\n`;
+            finalTotal = itemsTotal - disc;
+        } else {
+            tg += `**Итого: ${this.api.formatMoney(itemsTotal)}**\n`;
+        }
+        
+        let svcTotal = 0;
+        const enabledSvc = Object.values(this.services).filter(s => s.enabled && s.amount > 0);
+        if (enabledSvc.length) {
+            tg += '\n';
+            for (const s of enabledSvc) {
+                tg += `${s.name}: ${this.api.formatMoney(s.amount)}\n`;
+                svcTotal += s.amount;
+            }
+        }
+        
+        const grandTotal = finalTotal + svcTotal;
+        tg += `\n**Всего: ${this.api.formatMoney(grandTotal)}**`;
+        
+        // Сохраняем в историю
+        await this.api.db.save('history', {
+            id: this.api.generateId(),
+            created: new Date().toISOString(),
+            contracts: contract.number,
+            total: grandTotal,
+            telegramText: tg
+        });
+        
+        // Результат
+        let resHtml = `<div class="section-title">${contract.number}</div><div class="card mb-15">`;
+        for (const item of calcItems) {
+            resHtml += `
+                <div class="stat-row">
+                    <div>
+                        <div style="font-weight:500">${item.name}</div>
+                        <div style="font-size:12px;color:var(--text-secondary)">${this.api.formatMoney(item.cost)} → до ${item.targetPercent}%</div>
+                    </div>
+                    <span class="stat-value success">${this.api.formatMoney(item.toCollect)}</span>
+                </div>
+            `;
+        }
+        
+        if (contract.discount > 0) {
+            resHtml += `
+                <div class="stat-row" style="background:var(--bg);margin:10px -16px -16px;padding:12px 16px;border-radius:0 0 12px 12px">
+                    <span style="font-weight:600">Итого − ${contract.discount}%</span>
+                    <span class="stat-value primary">${this.api.formatMoney(finalTotal)}</span>
+                </div>
+            `;
+        } else {
+            resHtml += `
+                <div class="stat-row" style="background:var(--bg);margin:10px -16px -16px;padding:12px 16px;border-radius:0 0 12px 12px">
+                    <span style="font-weight:600">Итого</span>
+                    <span class="stat-value primary">${this.api.formatMoney(itemsTotal)}</span>
+                </div>
+            `;
+        }
+        resHtml += '</div>';
+        
+        if (enabledSvc.length) {
+            resHtml += '<div class="section-title">Доп. услуги</div><div class="card mb-15">';
+            for (const s of enabledSvc) {
+                resHtml += `<div class="stat-row"><span>${s.name}</span><span class="stat-value">${this.api.formatMoney(s.amount)}</span></div>`;
+            }
+            resHtml += '</div>';
+        }
+        
+        this.api.showModal({
+            title: '📊 Результат',
+            body: `
+                ${resHtml}
+                <div class="card" style="background:var(--primary);color:white;text-align:center;padding:20px">
+                    <div style="font-size:14px;opacity:0.9">Всего к оплате</div>
+                    <div style="font-size:28px;font-weight:700">${this.api.formatMoney(grandTotal)}</div>
+                </div>
+                <div class="section-title">Для Telegram</div>
+                <div class="telegram-output" id="tgText">${tg}</div>
+                <button class="btn btn-success btn-block" onclick="CalcModule.copyText()">📋 Скопировать</button>
+                <div class="flex gap-10 mt-15">
+                    <button class="btn btn-secondary" style="flex:1" onclick="CalcModule.exportCSV()">📊 CSV</button>
+                    <button class="btn btn-secondary" style="flex:1" onclick="CalcModule.exportPDF()">📄 PDF</button>
+                </div>
+            `
+        });
+    },
+    
+    copyText() {
+        const text = document.getElementById('tgText').innerText;
+        navigator.clipboard.writeText(text).then(() => {
+            this.api.showToast('✅ Скопировано!', 'success');
+        }).catch(() => {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            this.api.showToast('✅ Скопировано!', 'success');
+        });
+    },
+    
+    exportCSV() {
+        if (!this.lastResult) return;
+        const { contract, items, services } = this.lastResult;
+        
+        let csv = '\uFEFF';
+        csv += 'Договор;Позиция;Код;Стоимость;Оплачено %;Цель %;К доплате\n';
+        for (const i of items) {
+            csv += `${contract.number};"${i.name}";${i.code||''};${i.cost};${i.paidPercent.toFixed(2)};${i.targetPercent};${i.toCollect.toFixed(2)}\n`;
+        }
+        
+        for (const s of Object.values(services).filter(s => s.enabled && s.amount > 0)) {
+            csv += `;${s.name};;;;${s.amount};\n`;
+        }
+        
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `doplata_${contract.number}_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        this.api.showToast('📊 CSV сохранён', 'success');
+    },
+    
+    exportPDF() {
+        if (!this.lastResult || !window.jspdf) return;
+        const { contract, items, services } = this.lastResult;
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        let y = 20;
+        doc.setFontSize(16);
+        doc.text('Raschet doplat', 105, y, { align: 'center' });
+        y += 15;
+        
+        doc.setFontSize(12);
+        doc.text(`Dogovor ${contract.number}`, 20, y);
+        y += 8;
+        
+        doc.setFontSize(10);
+        let total = 0;
+        for (const i of items) {
+            doc.text(`  ${this.translit(i.name)}`, 20, y);
+            doc.text(this.api.formatMoney(i.toCollect).replace('₽','RUB'), 190, y, { align: 'right' });
+            total += i.toCollect;
+            y += 6;
+        }
+        
+        y += 4;
+        doc.setFontSize(12);
+        doc.text(`VSEGO: ${this.api.formatMoney(total).replace('₽','RUB')}`, 105, y, { align: 'center' });
+        
+        doc.save(`doplata_${contract.number}.pdf`);
+        this.api.showToast('📄 PDF сохранён', 'success');
+    },
+    
+    translit(t) {
+        const m = {'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'yo','ж':'zh','з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'h','ц':'ts','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya','А':'A','Б':'B','В':'V','Г':'G','Д':'D','Е':'E','Ё':'Yo','Ж':'Zh','З':'Z','И':'I','Й':'Y','К':'K','Л':'L','М':'M','Н':'N','О':'O','П':'P','Р':'R','С':'S','Т':'T','У':'U','Ф':'F','Х':'H','Ц':'Ts','Ч':'Ch','Ш':'Sh','Щ':'Sch','Ъ':'','Ы':'Y','Ь':'','Э':'E','Ю':'Yu','Я':'Ya'};
+        return t.split('').map(c => m[c] || c).join('');
+    },
+    
+    async activate() {
+        await this.loadData();
+    }
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// МОДУЛЬ: ИСТОРИЯ
+// ════════════════════════════════════════════════════════════════════════════
+
+const HistoryModule = {
+    name: 'История',
+    icon: '📜',
+    subtitle: 'История расчётов',
+    api: null,
+    history: [],
+    
+    async init(api) { this.api = api; },
+    
+    async loadHistory() {
+        this.history = await this.api.db.getAll('history');
+        this.history.sort((a, b) => new Date(b.created) - new Date(a.created));
+    },
+    
+    render() {
+        if (this.history.length === 0) {
+            return `
+                <div class="empty-state">
+                    <div class="empty-icon">📜</div>
+                    <div class="empty-title">История пуста</div>
+                    <div class="empty-text">Сделайте первый расчёт</div>
+                </div>
+            `;
+        }
+        
+        const html = this.history.map(h => `
+            <div class="history-item" onclick="HistoryModule.showEntry('${h.id}')">
+                <div class="history-date">${this.api.formatDateTime(h.created)}</div>
+                <div class="history-contracts">${h.contracts}</div>
+                <div class="history-total">${this.api.formatMoney(h.total)}</div>
+            </div>
+        `).join('');
+        
+        return `
+            <div class="list">${html}</div>
+            <button class="btn btn-danger btn-block mt-15" onclick="HistoryModule.clearAll()">🗑️ Очистить историю</button>
+        `;
+    },
+    
+    async showEntry(id) {
+        const h = await this.api.db.get('history', id);
+        if (!h) return;
+        
+        this.api.showModal({
+            title: `Расчёт от ${this.api.formatDate(h.created)}`,
+            body: `
+                <div class="card mb-15">
+                    <div class="stat-row"><span class="stat-label">Договор</span><span class="stat-value">${h.contracts}</span></div>
+                    <div class="stat-row"><span class="stat-label">Сумма</span><span class="stat-value primary">${this.api.formatMoney(h.total)}</span></div>
+                </div>
+                <div class="section-title">Текст</div>
+                <div class="telegram-output" id="histText">${h.telegramText||'—'}</div>
+                <button class="btn btn-success btn-block mb-10" onclick="HistoryModule.copyText()">📋 Скопировать</button>
+                <button class="btn btn-danger btn-block" onclick="HistoryModule.deleteEntry('${id}')">🗑️ Удалить</button>
+            `
+        });
+    },
+    
+    copyText() {
+        const text = document.getElementById('histText').innerText;
+        navigator.clipboard.writeText(text).then(() => this.api.showToast('✅ Скопировано!', 'success')).catch(() => {});
+    },
+    
+    async deleteEntry(id) {
+        if (!confirm('Удалить?')) return;
+        await this.api.db.delete('history', id);
+        this.api.closeModal();
+        this.api.showToast('🗑️ Удалено', 'success');
+        await this.api.refresh();
+    },
+    
+    async clearAll() {
+        if (!confirm('Удалить всю историю?')) return;
+        for (const h of this.history) await this.api.db.delete('history', h.id);
+        this.api.showToast('🗑️ Очищено', 'success');
+        await this.api.refresh();
+    },
+    
+    async activate() { await this.loadHistory(); }
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// МОДУЛЬ: НАСТРОЙКИ
+// ════════════════════════════════════════════════════════════════════════════
+
+const SettingsModule = {
+    name: 'Ещё',
+    icon: '⚙️',
+    subtitle: 'Настройки',
+    api: null,
+    
+    init(api) { this.api = api; },
+    
+    render() {
+        return `
+            <div class="list mb-20">
+                <div class="list-item" onclick="SettingsModule.exportData()">
+                    <div class="list-item-content">
+                        <div class="list-item-title">📤 Экспорт данных</div>
+                        <div class="list-item-subtitle">Резервная копия</div>
+                    </div>
+                    <span class="list-item-arrow">›</span>
+                </div>
+                <div class="list-item" onclick="SettingsModule.importData()">
+                    <div class="list-item-content">
+                        <div class="list-item-title">📥 Импорт данных</div>
+                        <div class="list-item-subtitle">Загрузить из файла</div>
+                    </div>
+                    <span class="list-item-arrow">›</span>
+                </div>
+                <div class="list-item" onclick="SettingsModule.clearData()">
+                    <div class="list-item-content">
+                        <div class="list-item-title">🗑️ Очистить всё</div>
+                        <div class="list-item-subtitle">Удалить все данные</div>
+                    </div>
+                    <span class="list-item-arrow">›</span>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">ℹ️ О приложении</div>
+                <div class="card-text">
+                    Расчёт доплат v2.1<br>
+                    MassivBurg<br><br>
+                    Работает офлайн
+                </div>
+            </div>
+        `;
+    },
+    
+    async exportData() {
+        const data = {
+            contracts: await this.api.db.getAll('contracts'),
+            items: await this.api.db.getAll('items'),
+            payments: await this.api.db.getAll('payments'),
+            history: await this.api.db.getAll('history'),
+            version: 2
+        };
+        
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `backup_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        this.api.showToast('📤 Экспортировано', 'success');
+    },
+    
+    importData() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = async e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            try {
+                const data = JSON.parse(await file.text());
+                if (data.contracts) for (const c of data.contracts) await this.api.db.save('contracts', c);
+                if (data.items) for (const i of data.items) await this.api.db.save('items', i);
+                if (data.payments) for (const p of data.payments) await this.api.db.save('payments', p);
+                if (data.history) for (const h of data.history) await this.api.db.save('history', h);
+                this.api.showToast('📥 Импортировано', 'success');
+            } catch {
+                this.api.showToast('❌ Ошибка', 'error');
+            }
+        };
+        input.click();
+    },
+    
+    clearData() {
+        if (confirm('Удалить ВСЕ данные?')) {
+            indexedDB.deleteDatabase('ContractCalcDB');
+            this.api.showToast('🗑️ Очищено. Обновите страницу.', 'success');
+        }
+    },
+    
+    activate() {}
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// ЗАПУСК
+// ════════════════════════════════════════════════════════════════════════════
+
+const App = new AppCore({ dbName: 'ContractCalcDB', dbVersion: 2 });
+
+App.registerModule('contracts', ContractsModule);
+App.registerModule('calc', CalcModule);
+App.registerModule('history', HistoryModule);
+App.registerModule('settings', SettingsModule);
+
+document.addEventListener('DOMContentLoaded', () => App.init());
+window.App = App;
+</script>
+</body>
+</html>
