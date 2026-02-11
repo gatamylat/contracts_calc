@@ -8,11 +8,16 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Расчёт доплат">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#2563eb">
+    <meta name="theme-color" content="#1A7AE6">
     
     <link rel="manifest" href="./manifest.json">
-    <title>Расчёт доплат</title>
+    <title>Расчёт доплат v3.0</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- Шрифты DM Sans + Playfair Display -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
     
     <style>
         * {
@@ -20,58 +25,279 @@
             padding: 0;
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        input, textarea, [contenteditable] {
+            -webkit-user-select: text;
+            user-select: text;
         }
         
         :root {
-            --primary: #2563eb;
-            --primary-dark: #1d4ed8;
-            --bg: #f1f5f9;
-            --card: #ffffff;
-            --text: #1e293b;
-            --text-secondary: #64748b;
-            --border: #e2e8f0;
-            --success: #22c55e;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --safe-top: env(safe-area-inset-top);
-            --safe-bottom: env(safe-area-inset-bottom);
+            /* Цвета из Surf - тёплый бежевый */
+            --bg: #FAF9F5;
+            --card: #FFFFFF;
+            --text: #1C1C1E;
+            --t2: #8A8985;
+            --t3: #C4C3BE;
+            --primary: #1A7AE6;
+            --primary-bg: rgba(26, 122, 230, 0.06);
+            --success: #2EBD52;
+            --danger: #E8453A;
+            --warning: #E89A0A;
+            --border: rgba(40, 35, 20, 0.06);
+            --shadow: 0 1px 4px rgba(30, 25, 10, 0.03);
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --f: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            --fs: 'Playfair Display', Georgia, serif;
+            
+            /* Обратная совместимость */
+            --primary-dark: #1565C0;
+            --text-secondary: var(--t2);
         }
         
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+        /* Тёмная тема */
+        html.dark {
+            --bg: #1A1A1D;
+            --card: #2C2C2E;
+            --text: #F0EFEA;
+            --t2: #9A9A9A;
+            --t3: #5A5A5C;
+            --primary: #4A9FF5;
+            --primary-bg: rgba(74, 159, 245, 0.1);
+            --success: #34D058;
+            --danger: #F45050;
+            --warning: #F0A830;
+            --border: rgba(255, 255, 255, 0.08);
+            --shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+            --text-secondary: var(--t2);
+        }
+        
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            font-family: var(--f);
             background: var(--bg);
             color: var(--text);
-            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            transition: background 0.3s, color 0.3s;
+        }
+        
+        /* ══ АДАПТИВНЫЙ LAYOUT ══ */
+        .app {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
             padding-top: var(--safe-top);
-            padding-bottom: calc(70px + var(--safe-bottom));
+        }
+        
+        .app-body {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        /* Боковая навигация (скрыта на мобильных) */
+        .sidebar {
+            display: none;
+            width: 220px;
+            background: var(--card);
+            border-right: 1px solid var(--border);
+            flex-shrink: 0;
+            flex-direction: column;
+        }
+        
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .sidebar-logo {
+            font-family: var(--fs);
+            font-size: 22px;
+            font-weight: 500;
+            letter-spacing: -0.5px;
+        }
+        
+        .sidebar-logo b {
+            color: var(--primary);
+            font-weight: 500;
+        }
+        
+        .sidebar-nav {
+            flex: 1;
+            padding: 12px 0;
+            overflow-y: auto;
+        }
+        
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--t2);
+        }
+        
+        .sidebar-item:hover {
+            background: var(--primary-bg);
+            color: var(--text);
+        }
+        
+        .sidebar-item.active {
+            background: var(--primary-bg);
+            color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .sidebar-item .nav-icon {
+            font-size: 18px;
+        }
+        
+        .sidebar-footer {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+        }
+        
+        .theme-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            background: var(--bg);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--t2);
+            transition: all 0.15s;
+        }
+        
+        .theme-toggle:hover {
+            color: var(--text);
+        }
+        
+        /* Основной контент */
+        .app-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-width: 0;
         }
         
         .header {
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(250, 249, 245, 0.95);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            padding: 15px 20px;
+            padding: 12px 20px;
             position: sticky;
             top: 0;
             z-index: 100;
             border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
         
-        .header h1 { font-size: 24px; font-weight: 700; }
-        .header-subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+        html.dark .header {
+            background: rgba(26, 26, 29, 0.95);
+        }
         
-        .content { padding: 15px; }
+        .header-menu {
+            display: none;
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 50%;
+            background: none;
+            color: var(--t2);
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .header-menu:active {
+            background: var(--border);
+        }
+        
+        .header-content {
+            flex: 1;
+        }
+        
+        .header h1 {
+            font-family: var(--fs);
+            font-size: 22px;
+            font-weight: 500;
+            letter-spacing: -0.3px;
+        }
+        
+        .header-subtitle {
+            font-size: 12px;
+            color: var(--t2);
+            margin-top: 2px;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .header-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 50%;
+            background: none;
+            color: var(--t2);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+        
+        .header-btn:hover {
+            background: var(--border);
+            color: var(--text);
+        }
+        
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 15px;
+            padding-bottom: calc(80px + var(--safe-bottom));
+        }
+        
+        .content::-webkit-scrollbar {
+            display: none;
+        }
         
         .card {
             background: var(--card);
             border-radius: 12px;
             padding: 16px;
             margin-bottom: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            box-shadow: var(--shadow);
         }
         
-        .card-title { font-size: 17px; font-weight: 600; margin-bottom: 8px; }
-        .card-text { font-size: 15px; color: var(--text-secondary); line-height: 1.4; }
+        .card-title {
+            font-family: var(--fs);
+            font-size: 18px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        
+        .card-text {
+            font-size: 15px;
+            color: var(--t2);
+            line-height: 1.5;
+        }
         
         .btn {
             display: inline-flex;
@@ -81,37 +307,42 @@
             padding: 12px 20px;
             border: none;
             border-radius: 10px;
-            font-size: 15px;
+            font-family: var(--f);
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.15s;
         }
         
         .btn-primary { background: var(--primary); color: white; }
-        .btn-primary:active { background: var(--primary-dark); transform: scale(0.98); }
-        .btn-secondary { background: var(--bg); color: var(--text); }
+        .btn-primary:active { opacity: 0.85; transform: scale(0.98); }
+        .btn-secondary { background: var(--bg); color: var(--text); border: 1.5px solid var(--border); }
+        .btn-secondary:active { background: var(--border); }
         .btn-success { background: var(--success); color: white; }
         .btn-danger { background: var(--danger); color: white; }
         .btn-warning { background: var(--warning); color: white; }
         .btn-block { width: 100%; }
-        .btn-sm { padding: 8px 12px; font-size: 13px; }
+        .btn-sm { padding: 8px 14px; font-size: 13px; }
         
         .input {
             width: 100%;
-            padding: 12px 15px;
-            border: 1px solid var(--border);
+            padding: 12px 14px;
+            border: 1.5px solid var(--border);
             border-radius: 10px;
-            font-size: 16px;
-            background: var(--card);
+            font-family: var(--f);
+            font-size: 15px;
+            background: var(--bg);
+            color: var(--text);
             transition: border-color 0.2s;
         }
         
-        .input:focus { outline: none; border-color: var(--primary); }
+        .input:focus { outline: none; border-color: var(--primary); background: var(--card); }
+        .input::placeholder { color: var(--t3); }
         
         .form-group { margin-bottom: 15px; }
         .form-label {
             display: block;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             color: var(--text-secondary);
             margin-bottom: 6px;
@@ -119,41 +350,61 @@
         
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         
+        /* Нижняя навигация (мобильная) */
         .nav-bottom {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(250, 249, 245, 0.95);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border-top: 1px solid var(--border);
             display: flex;
             justify-content: space-around;
-            padding: 8px 0;
-            padding-bottom: calc(8px + var(--safe-bottom));
+            padding: 6px 0;
+            padding-bottom: calc(6px + var(--safe-bottom));
             z-index: 100;
+        }
+        
+        html.dark .nav-bottom {
+            background: rgba(26, 26, 29, 0.95);
         }
         
         .nav-item {
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 5px 12px;
-            color: var(--text-secondary);
+            padding: 6px 14px;
+            color: var(--t2);
             text-decoration: none;
             font-size: 10px;
+            font-weight: 500;
             cursor: pointer;
-            transition: color 0.2s;
+            transition: color 0.15s;
+            border-radius: 8px;
         }
         
-        .nav-item.active { color: var(--primary); }
-        .nav-icon { font-size: 22px; margin-bottom: 2px; }
+        .nav-item:active {
+            background: var(--primary-bg);
+        }
         
+        .nav-item.active {
+            color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .nav-icon {
+            font-size: 20px;
+            margin-bottom: 3px;
+        }
+        
+        /* Списки */
         .list {
             background: var(--card);
             border-radius: 12px;
             overflow: hidden;
+            box-shadow: var(--shadow);
         }
         
         .list-item {
@@ -162,38 +413,47 @@
             padding: 14px 16px;
             border-bottom: 1px solid var(--border);
             cursor: pointer;
+            transition: background 0.1s;
         }
         
         .list-item:last-child { border-bottom: none; }
-        .list-item:active { background: var(--bg); }
-        .list-item-content { flex: 1; }
-        .list-item-title { font-size: 16px; font-weight: 500; }
-        .list-item-subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
-        .list-item-value { font-size: 15px; font-weight: 600; color: var(--primary); text-align: right; }
-        .list-item-arrow { color: var(--text-secondary); font-size: 18px; margin-left: 10px; }
+        .list-item:active { background: rgba(0, 0, 0, 0.02); }
+        .list-item-content { flex: 1; min-width: 0; }
+        .list-item-title { font-size: 15px; font-weight: 500; }
+        .list-item-subtitle { font-size: 12px; color: var(--t2); margin-top: 3px; }
+        .list-item-value { font-size: 14px; font-weight: 600; color: var(--primary); text-align: right; margin-left: 12px; }
+        .list-item-arrow { color: var(--t3); font-size: 16px; margin-left: 8px; }
         
+        /* Модальное окно */
         .modal-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.4);
+            background: rgba(20, 18, 10, 0.18);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
             display: none;
             align-items: flex-end;
             justify-content: center;
             z-index: 1000;
+            transition: background 0.3s;
         }
         
         .modal-overlay.active { display: flex; }
         
         .modal {
             background: var(--card);
-            border-radius: 20px 20px 0 0;
+            border-radius: 16px 16px 0 0;
             width: 100%;
+            max-width: 500px;
             max-height: 90vh;
             padding: 20px;
             padding-bottom: calc(20px + var(--safe-bottom));
-            animation: slideUp 0.3s ease;
+            animation: slideUp 0.35s cubic-bezier(0.22, 1, 0.36, 1);
             overflow-y: auto;
+            box-shadow: 0 -4px 24px rgba(30, 25, 10, 0.08);
         }
+        
+        .modal::-webkit-scrollbar { display: none; }
         
         @keyframes slideUp {
             from { transform: translateY(100%); }
@@ -207,44 +467,63 @@
             margin-bottom: 20px;
         }
         
-        .modal-title { font-size: 20px; font-weight: 700; }
+        .modal-title {
+            font-family: var(--fs);
+            font-size: 18px;
+            font-weight: 500;
+        }
         
         .modal-close {
-            width: 30px;
-            height: 30px;
+            width: 28px;
+            height: 28px;
             border-radius: 50%;
             background: var(--bg);
             border: none;
-            font-size: 18px;
+            font-size: 14px;
+            color: var(--t2);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: all 0.15s;
         }
         
+        .modal-close:active { background: var(--border); }
+        
+        /* Toast уведомления */
         .toast {
             position: fixed;
-            top: calc(20px + var(--safe-top));
+            bottom: calc(80px + var(--safe-bottom));
             left: 50%;
-            transform: translateX(-50%) translateY(-100px);
+            transform: translateX(-50%) translateY(20px);
             background: var(--text);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 10px;
-            font-size: 14px;
+            color: var(--bg);
+            padding: 10px 20px;
+            border-radius: 100px;
+            font-size: 13px;
             font-weight: 500;
             z-index: 2000;
-            transition: transform 0.3s ease;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.25s;
+            box-shadow: 0 8px 24px rgba(30, 25, 10, 0.15);
+            white-space: nowrap;
         }
         
-        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+            pointer-events: all;
+        }
+        
         .toast.success { background: var(--success); }
         .toast.error { background: var(--danger); }
         
+        /* Пустое состояние */
         .empty-state { text-align: center; padding: 60px 20px; }
-        .empty-icon { font-size: 64px; margin-bottom: 16px; }
-        .empty-title { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
-        .empty-text { font-size: 15px; color: var(--text-secondary); }
+        .empty-icon { font-size: 56px; margin-bottom: 16px; opacity: 0.6; }
+        .empty-title { font-family: var(--fs); font-size: 18px; font-weight: 500; margin-bottom: 8px; }
+        .empty-text { font-size: 14px; color: var(--t2); }
         
         .stat-row {
             display: flex;
@@ -518,15 +797,186 @@
             opacity: 0.4;
             cursor: not-allowed;
         }
+        
+        /* ══════════════════════════════════════════════════════════════════
+           АДАПТИВНОСТЬ: ПЛАНШЕТ (768px+)
+           ══════════════════════════════════════════════════════════════════ */
+        @media (min-width: 768px) {
+            .app {
+                flex-direction: row;
+                max-width: 1400px;
+                margin: 0 auto;
+            }
+            
+            .app-body {
+                flex-direction: row;
+            }
+            
+            /* Показываем боковую навигацию */
+            .sidebar {
+                display: flex;
+            }
+            
+            /* Скрываем нижнюю навигацию */
+            .nav-bottom {
+                display: none;
+            }
+            
+            /* Убираем отступ снизу */
+            .content {
+                padding-bottom: 20px;
+            }
+            
+            /* Модальное окно по центру */
+            .modal-overlay {
+                align-items: center;
+            }
+            
+            .modal {
+                border-radius: 16px;
+                max-width: 480px;
+                margin: 20px;
+                max-height: calc(100vh - 40px);
+            }
+            
+            /* Улучшаем header */
+            .header {
+                padding: 16px 24px;
+            }
+            
+            .content {
+                padding: 20px 24px;
+            }
+            
+            /* Двухколоночные списки */
+            .contracts-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+            }
+            
+            .contracts-grid .list-item {
+                border-radius: 12px;
+                border: 1px solid var(--border);
+            }
+        }
+        
+        /* ══════════════════════════════════════════════════════════════════
+           АДАПТИВНОСТЬ: ДЕСКТОП (1200px+)
+           ══════════════════════════════════════════════════════════════════ */
+        @media (min-width: 1200px) {
+            .sidebar {
+                width: 260px;
+            }
+            
+            .content {
+                padding: 24px 32px;
+            }
+            
+            /* Трёхколоночные списки */
+            .contracts-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            
+            /* Карточки расчёта шире */
+            .calc-row {
+                padding: 16px 20px;
+            }
+            
+            .calc-row-title {
+                font-size: 16px;
+            }
+            
+            .calc-row-result {
+                font-size: 16px;
+                min-width: 110px;
+            }
+            
+            /* Более широкое модальное окно */
+            .modal {
+                max-width: 560px;
+            }
+        }
+        
+        /* ══════════════════════════════════════════════════════════════════
+           МОБИЛЬНАЯ ВЕРСИЯ: показываем header-menu
+           ══════════════════════════════════════════════════════════════════ */
+        @media (max-width: 767px) {
+            .header-menu {
+                display: flex;
+            }
+            
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                z-index: 200;
+                transform: translateX(-100%);
+                transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+                box-shadow: 4px 0 24px rgba(30, 25, 10, 0.1);
+            }
+            
+            .sidebar.open {
+                display: flex;
+                transform: translateX(0);
+            }
+            
+            .sidebar-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(20, 18, 10, 0.2);
+                z-index: 199;
+                display: none;
+            }
+            
+            .sidebar-overlay.open {
+                display: block;
+            }
+        }
     </style>
 </head>
 <body>
-    <header class="header">
-        <h1 id="pageTitle">📋 Договоры</h1>
-        <div class="header-subtitle" id="pageSubtitle">Управление договорами</div>
-    </header>
-    
-    <main class="content" id="mainContent"></main>
+    <div class="app">
+        <!-- Боковая панель (для планшета/десктопа) -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">Расчёт <b>доплат</b></div>
+            </div>
+            <nav class="sidebar-nav" id="sidebarNav"></nav>
+            <div class="sidebar-footer">
+                <div class="theme-toggle" onclick="toggleTheme()">
+                    <span id="themeIcon">🌙</span>
+                    <span id="themeText">Тёмная тема</span>
+                </div>
+            </div>
+        </aside>
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+        
+        <!-- Основной контент -->
+        <div class="app-main">
+            <header class="header">
+                <button class="header-menu" id="menuBtn" onclick="toggleSidebar()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <line x1="3" y1="6" x2="21" y2="6"/>
+                        <line x1="3" y1="12" x2="21" y2="12"/>
+                        <line x1="3" y1="18" x2="21" y2="18"/>
+                    </svg>
+                </button>
+                <div class="header-content">
+                    <h1 id="pageTitle">📋 Договоры</h1>
+                    <div class="header-subtitle" id="pageSubtitle">Управление договорами</div>
+                </div>
+                <div class="header-actions">
+                    <button class="header-btn" onclick="toggleTheme()" title="Тема">
+                        <span id="themeIconHeader">🌙</span>
+                    </button>
+                </div>
+            </header>
+            
+            <main class="content" id="mainContent"></main>
+        </div>
+    </div>
     
     <nav class="nav-bottom" id="navBottom"></nav>
     
@@ -656,9 +1106,8 @@ class AppCore {
         
         this.activeModule = name;
         
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.classList.toggle('active', item.dataset.module === name);
-        });
+        // Обновляем активный элемент в навигации
+        this.updateNavActiveState();
         
         this.dom.title.textContent = module.icon ? `${module.icon} ${module.name}` : module.name;
         this.dom.subtitle.textContent = module.subtitle || '';
@@ -671,12 +1120,31 @@ class AppCore {
     }
     
     renderNavigation() {
+        // Нижняя навигация (мобильная)
         this.dom.nav.innerHTML = Object.entries(this.modules).map(([name, m]) => `
             <div class="nav-item" data-module="${name}" onclick="App.activateModule('${name}')">
                 <span class="nav-icon">${m.icon || '📄'}</span>
                 <span>${m.name}</span>
             </div>
         `).join('');
+        
+        // Боковая навигация (планшет/десктоп)
+        const sidebarNav = document.getElementById('sidebarNav');
+        if (sidebarNav) {
+            sidebarNav.innerHTML = Object.entries(this.modules).map(([name, m]) => `
+                <div class="sidebar-item" data-module="${name}" onclick="App.activateModule('${name}'); closeSidebar();">
+                    <span class="nav-icon">${m.icon || '📄'}</span>
+                    <span>${m.name}</span>
+                </div>
+            `).join('');
+        }
+    }
+    
+    updateNavActiveState() {
+        // Обновляем активный элемент в обеих навигациях
+        document.querySelectorAll('.nav-item, .sidebar-item').forEach(item => {
+            item.classList.toggle('active', item.dataset.module === this.activeModule);
+        });
     }
     
     // Полная перезагрузка модуля
@@ -1865,6 +2333,55 @@ const SettingsModule = {
 
 // ════════════════════════════════════════════════════════════════════════════
 // ЗАПУСК
+// ════════════════════════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════════════════════
+// ТЕМА И SIDEBAR
+// ════════════════════════════════════════════════════════════════════════════
+
+function toggleTheme() {
+    const isDark = document.documentElement.classList.toggle('dark');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    updateThemeIcons();
+}
+
+function updateThemeIcons() {
+    const isDark = document.documentElement.classList.contains('dark');
+    const icon = isDark ? '☀️' : '🌙';
+    const text = isDark ? 'Светлая тема' : 'Тёмная тема';
+    
+    const themeIcon = document.getElementById('themeIcon');
+    const themeText = document.getElementById('themeText');
+    const themeIconHeader = document.getElementById('themeIconHeader');
+    
+    if (themeIcon) themeIcon.textContent = icon;
+    if (themeText) themeText.textContent = text;
+    if (themeIconHeader) themeIconHeader.textContent = icon;
+}
+
+function loadTheme() {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'dark') {
+        document.documentElement.classList.add('dark');
+    }
+    updateThemeIcons();
+}
+
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+}
+
+// Загружаем тему при старте
+loadTheme();
+
+// ════════════════════════════════════════════════════════════════════════════
+// ИНИЦИАЛИЗАЦИЯ
 // ════════════════════════════════════════════════════════════════════════════
 
 const App = new AppCore({ dbName: 'ContractCalcDB', dbVersion: 2 });
