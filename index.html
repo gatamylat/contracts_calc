@@ -579,6 +579,7 @@
         .mb-15 { margin-bottom: 15px; }
         .mb-20 { margin-bottom: 20px; }
         .mt-15 { margin-top: 15px; }
+        .mt-10 { margin-top: 10px; }
         .text-center { text-align: center; }
         .flex { display: flex; }
         .flex-between { justify-content: space-between; }
@@ -980,7 +981,8 @@
     
     <nav class="nav-bottom" id="navBottom"></nav>
     
-    <div class="modal-overlay" id="modalOverlay">
+    <!-- FIX: добавлен onclick на оверлей для закрытия по клику мимо окна -->
+    <div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)App.closeModal()">
         <div class="modal" id="modalContent"></div>
     </div>
     
@@ -1335,18 +1337,16 @@ const ContractsModule = {
         
         const items = await this.api.db.getAll('items', 'contractId', id);
         const payments = await this.api.db.getAll('payments', 'contractId', id);
-        payments.sort((a, b) => new Date(b.date) - new Date(a.date)); // сортировка по дате
+        payments.sort((a, b) => new Date(b.date) - new Date(a.date));
         
         const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
         const paidPct = c.totalAmount > 0 ? (totalPaid / c.totalAmount * 100) : 0;
         const remain = c.totalAmount - totalPaid;
         
-        // Сумма позиций для сверки
         const itemsSum = items.reduce((s, i) => s + (i.cost || 0), 0);
         const sumsDiff = c.totalAmount - itemsSum;
         const sumsDiffClass = Math.abs(sumsDiff) < 1 ? 'success' : 'danger';
         
-        // Оплаты с кликом для просмотра деталей
         const paymentsHtml = payments.length ? payments.map(p => `
             <div class="payment-item" style="cursor:pointer" onclick="ContractsModule.showPaymentDetails('${p.id}', '${id}')">
                 <div class="payment-info">
@@ -1409,7 +1409,6 @@ const ContractsModule = {
         });
     },
     
-    // Переход в Расчёт с выбранным договором
     goToCalc(contractId) {
         this.api.closeModal();
         CalcModule.selectedContractId = contractId;
@@ -1419,16 +1418,13 @@ const ContractsModule = {
         App.activateModule('calc');
     },
     
-    // Показать детали оплаты
     async showPaymentDetails(paymentId, contractId) {
         const p = await this.api.db.get('payments', paymentId);
         if (!p) return;
         
         let detailsHtml = '';
         
-        // Если есть детализация по позициям
         if (p.details && p.details.length > 0) {
-            // Позиции
             detailsHtml = '<div style="font-size:12px;color:var(--t2);margin-bottom:4px">Позиции:</div>';
             detailsHtml += p.details.map(d => `
                 <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
@@ -1440,7 +1436,6 @@ const ContractsModule = {
                 </div>
             `).join('');
             
-            // Услуги
             if (p.services && p.services.length > 0) {
                 detailsHtml += '<div style="font-size:12px;color:var(--t2);margin:8px 0 4px">Услуги:</div>';
                 detailsHtml += p.services.map(s => `
@@ -1451,9 +1446,8 @@ const ContractsModule = {
                 `).join('');
             }
             
-            // Скидка
             if (p.discount > 0) {
-                const subtotal = p.subtotal || p.amount;  // для старых записей
+                const subtotal = p.subtotal || p.amount;
                 const discountAmount = p.discountAmount || (subtotal * p.discount / 100);
                 detailsHtml += `
                     <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
@@ -1492,7 +1486,6 @@ const ContractsModule = {
         });
     },
     
-    // Редактирование оплаты
     async editPayment(paymentId, contractId) {
         const p = await this.api.db.get('payments', paymentId);
         if (!p) return;
@@ -1538,7 +1531,6 @@ const ContractsModule = {
     },
     
     showAddPayment(contractId) {
-        // Находим договор для расчётов
         const contract = this.contracts.find(c => c.id === contractId);
         if (!contract) return;
         
@@ -1546,7 +1538,6 @@ const ContractsModule = {
         const paidPercent = contract.totalAmount > 0 ? (paidAmount / contract.totalAmount * 100) : 0;
         const remainAmount = contract.totalAmount - paidAmount;
         
-        // Рассчитываем суммы для быстрых кнопок
         const calcToPercent = (targetPct) => {
             const targetAmount = contract.totalAmount * targetPct / 100;
             return Math.max(0, targetAmount - paidAmount);
@@ -1622,7 +1613,6 @@ const ContractsModule = {
         });
     },
     
-    // Установить сумму по целевому проценту (быстрые кнопки)
     setPaymentPercent(targetPercent, totalAmount, paidAmount) {
         const targetAmount = totalAmount * targetPercent / 100;
         const paymentAmount = Math.max(0, targetAmount - paidAmount);
@@ -1631,7 +1621,6 @@ const ContractsModule = {
         document.getElementById('payAmount').value = Math.round(paymentAmount);
     },
     
-    // Рассчитать сумму по введённому проценту
     calcPaymentFromPercent(totalAmount, paidAmount) {
         const targetPercent = parseFloat(document.getElementById('payPercent').value) || 0;
         const currentPercent = totalAmount > 0 ? (paidAmount / totalAmount * 100) : 0;
@@ -1646,7 +1635,6 @@ const ContractsModule = {
         document.getElementById('payAmount').value = Math.round(paymentAmount);
     },
     
-    // Рассчитать процент по введённой сумме
     calcPercentFromPayment(totalAmount, paidAmount) {
         const paymentAmount = parseFloat(document.getElementById('payAmount').value) || 0;
         const newTotal = paidAmount + paymentAmount;
@@ -1667,10 +1655,7 @@ const ContractsModule = {
             created: new Date().toISOString()
         });
         
-        // Обновляем данные договоров
         await this.loadContracts();
-        
-        // Обновляем главную страницу за модалом
         this.api.rerender();
         
         this.api.showToast('✅ Оплата добавлена', 'success');
@@ -1681,10 +1666,7 @@ const ContractsModule = {
         if (!confirm('Удалить оплату?')) return;
         await this.api.db.delete('payments', paymentId);
         
-        // Обновляем данные договоров
         await this.loadContracts();
-        
-        // Обновляем главную страницу за модалом
         this.api.rerender();
         
         this.api.showToast('🗑️ Удалено', 'success');
@@ -1773,7 +1755,7 @@ const ContractsModule = {
             contractId,
             code: document.getElementById('iCode').value.trim(),
             name, cost,
-            paidPercent: 0,  // % оплаты изделия
+            paidPercent: 0,
             created: new Date().toISOString()
         });
         
@@ -1781,7 +1763,6 @@ const ContractsModule = {
         this.showContract(contractId);
     },
     
-    // Редактирование позиции
     async editItem(itemId) {
         const item = await this.api.db.get('items', itemId);
         if (!item) return;
@@ -1870,32 +1851,28 @@ const CalcModule = {
     subtitle: 'Расчёт доплат',
     api: null,
     
-    // Данные из БД
     contracts: [],
     items: [],
     
-    // Состояние модуля (используем массив вместо Set)
     selectedContractId: null,
-    selectedItems: [],  // массив ID выбранных позиций
+    selectedItems: [],
     customPercents: {},
     services: {
         delivery: { name: 'Доставка', enabled: false, amount: 50000 },
         unloading: { name: 'Разгрузка', enabled: false, amount: 10000 },
         mounting: { name: 'Монтаж', enabled: false, amount: 0 }
     },
-    customDiscount: 0,  // Скидка в процентах
+    customDiscount: 0,
     lastResult: null,
     
     async init(api) { this.api = api; },
     
-    // Загрузка данных из БД
     async loadData() {
         console.log('CalcModule: загрузка данных...');
         this.contracts = await this.api.db.getAll('contracts');
         this.contracts.sort((a, b) => new Date(b.created) - new Date(a.created));
         this.items = await this.api.db.getAll('items');
         
-        // Подгружаем платежи для расчёта процента оплаты
         for (const c of this.contracts) {
             const payments = await this.api.db.getAll('payments', 'contractId', c.id);
             c.paidAmount = payments.reduce((s, p) => s + p.amount, 0);
@@ -1903,7 +1880,6 @@ const CalcModule = {
         
         console.log('CalcModule: загружено', this.contracts.length, 'договоров,', this.items.length, 'позиций');
         
-        // Если выбранный договор удалён — сбрасываем
         if (this.selectedContractId && !this.contracts.find(c => c.id === this.selectedContractId)) {
             this.selectedContractId = null;
             this.selectedItems = [];
@@ -1911,35 +1887,29 @@ const CalcModule = {
             this.customDiscount = 0;
         }
         
-        // Очищаем выбранные позиции которых больше нет
         this.selectedItems = this.selectedItems.filter(id => this.items.find(i => i.id === id));
     },
     
-    // Позиции текущего договора
     getContractItems() {
         if (!this.selectedContractId) return [];
         return this.items.filter(i => i.contractId === this.selectedContractId);
     },
     
-    // Текущий договор
     getSelectedContract() {
         return this.contracts.find(c => c.id === this.selectedContractId);
     },
     
-    // Проверка выбрана ли позиция
     isItemSelected(itemId) {
         return this.selectedItems.indexOf(itemId) !== -1;
     },
     
-    // Расчёт суммы к доплате для позиции (от % изделия, не договора)
     calcItemAmount(item) {
-        const paidPct = item.paidPercent || 0;  // текущий % оплаты изделия
+        const paidPct = item.paidPercent || 0;
         const targetPct = this.customPercents[item.id] !== undefined ? this.customPercents[item.id] : 100;
         const remainPct = targetPct - paidPct;
         return remainPct > 0 ? item.cost * remainPct / 100 : 0;
     },
     
-    // Итого по выбранным позициям (без услуг и скидки)
     calcTotal() {
         let total = 0;
         for (const itemId of this.selectedItems) {
@@ -1951,7 +1921,6 @@ const CalcModule = {
         return total;
     },
     
-    // Сумма услуг
     calcServicesTotal() {
         let total = 0;
         for (const svc of Object.values(this.services)) {
@@ -1962,7 +1931,6 @@ const CalcModule = {
         return total;
     },
     
-    // Итого с услугами и скидкой
     calcGrandTotal() {
         const itemsTotal = this.calcTotal();
         const servicesTotal = this.calcServicesTotal();
@@ -1982,7 +1950,6 @@ const CalcModule = {
             `;
         }
         
-        // Селектор договора
         const options = this.contracts.map(c => {
             const paidPct = c.totalAmount > 0 ? (c.paidAmount / c.totalAmount * 100) : 0;
             const sel = c.id === this.selectedContractId ? 'selected' : '';
@@ -1997,7 +1964,6 @@ const CalcModule = {
                 </select>
         `;
         
-        // Инфо о договоре
         const contract = this.getSelectedContract();
         if (contract) {
             const paidPct = contract.totalAmount > 0 ? (contract.paidAmount / contract.totalAmount * 100) : 0;
@@ -2013,7 +1979,6 @@ const CalcModule = {
         }
         html += '</div>';
         
-        // Позиции выбранного договора
         if (this.selectedContractId) {
             const items = this.getContractItems();
             
@@ -2026,7 +1991,6 @@ const CalcModule = {
                     </div>
                 `;
             } else {
-                // Сводка - с учётом услуг и скидки
                 const contractItemIds = items.map(i => i.id);
                 const selectedCount = this.selectedItems.filter(id => contractItemIds.includes(id)).length;
                 const enabledSvcCount = Object.values(this.services).filter(s => s.enabled).length;
@@ -2040,7 +2004,6 @@ const CalcModule = {
                     </div>
                 `;
                 
-                // Список позиций
                 html += '<div class="list mb-15" id="itemsList">';
                 for (const item of items) {
                     const isChecked = this.isItemSelected(item.id);
@@ -2048,7 +2011,6 @@ const CalcModule = {
                     const targetPct = this.customPercents[item.id] !== undefined ? this.customPercents[item.id] : 100;
                     const amount = this.calcItemAmount(item);
                     
-                    // Цвет бейджа оплаты
                     let paidColor = 'var(--t3)';
                     if (paidPct >= 100) paidColor = 'var(--success)';
                     else if (paidPct >= 70) paidColor = 'var(--primary)';
@@ -2082,7 +2044,6 @@ const CalcModule = {
                 }
                 html += '</div>';
                 
-                // Доп услуги
                 html += `<div class="section-title">Доп. услуги</div><div class="card mb-15">`;
                 for (const [key, svc] of Object.entries(this.services)) {
                     html += `
@@ -2102,7 +2063,6 @@ const CalcModule = {
                 }
                 html += '</div>';
                 
-                // Скидка
                 html += `
                     <div class="section-title">Скидка</div>
                     <div class="card mb-15">
@@ -2126,7 +2086,6 @@ const CalcModule = {
                     </div>
                 `;
                 
-                // Кнопка расчёта
                 html += `<button class="btn btn-success btn-block" onclick="CalcModule.calculate()">📊 Рассчитать</button>`;
             }
         }
@@ -2134,21 +2093,16 @@ const CalcModule = {
         return html;
     },
     
-    // ═══════ ОБРАБОТЧИКИ ═══════
-    
-    // Выбор договора
     selectContract(contractId) {
         console.log('selectContract:', contractId);
         this.selectedContractId = contractId || null;
-        this.selectedItems = [];  // Сбрасываем выбранные позиции
+        this.selectedItems = [];
         this.customPercents = {};
-        this.customDiscount = 0;  // Сбрасываем скидку
+        this.customDiscount = 0;
         this.api.rerender();
     },
     
-    // Клик по строке позиции
     rowClick(itemId, event) {
-        // Переключаем состояние в массиве
         const idx = this.selectedItems.indexOf(itemId);
         if (idx === -1) {
             this.selectedItems.push(itemId);
@@ -2156,19 +2110,15 @@ const CalcModule = {
             this.selectedItems.splice(idx, 1);
         }
         
-        // Обновляем чекбокс
         const checkbox = document.getElementById('chk_' + itemId);
         if (checkbox) {
             checkbox.checked = this.selectedItems.indexOf(itemId) !== -1;
         }
         
         console.log('rowClick:', itemId, 'selected:', this.selectedItems.length);
-        
-        // Обновляем сводку
         this.updateSummary();
     },
     
-    // Клик по строке услуги
     serviceRowClick(key, event) {
         this.services[key].enabled = !this.services[key].enabled;
         
@@ -2180,13 +2130,11 @@ const CalcModule = {
         this.updateSummary();
     },
     
-    // Изменение процента
     changePercent(itemId, value) {
         const item = this.items.find(i => i.id === itemId);
         const minPct = item ? (item.paidPercent || 0) : 0;
         this.customPercents[itemId] = Math.min(100, Math.max(minPct, parseFloat(value) || 100));
         
-        // Обновляем сумму этой позиции
         if (item) {
             const el = document.getElementById('amt_' + itemId);
             if (el) el.textContent = this.api.formatMoney(this.calcItemAmount(item));
@@ -2195,25 +2143,20 @@ const CalcModule = {
         this.updateSummary();
     },
     
-    // Изменение суммы услуги
     changeServiceAmount(key, value) {
         this.services[key].amount = parseFloat(value) || 0;
         this.updateSummary();
     },
     
-    // Установка скидки
     setDiscount(value) {
         this.customDiscount = Math.min(100, Math.max(0, value));
         
-        // Обновляем input
         const input = document.getElementById('discountInput');
         if (input) input.value = this.customDiscount;
         
-        // Перерисовываем для обновления кнопок
         this.api.rerender();
     },
     
-    // Обновление сводки без перерисовки
     updateSummary() {
         const items = this.getContractItems();
         const contractItemIds = items.map(i => i.id);
@@ -2229,8 +2172,6 @@ const CalcModule = {
         if (totalEl) totalEl.textContent = this.api.formatMoney(grandTotal);
     },
     
-    // ═══════ РАСЧЁТ ═══════
-    
     async calculate() {
         const contract = this.getSelectedContract();
         if (!contract) return;
@@ -2243,7 +2184,6 @@ const CalcModule = {
             return;
         }
         
-        // Собираем данные по каждому изделию
         const calcItems = selectedIds.map(id => {
             const item = this.items.find(i => i.id === id);
             const paidPct = item.paidPercent || 0;
@@ -2256,27 +2196,23 @@ const CalcModule = {
             };
         });
         
-        // Сохраняем результат с текущей скидкой
         const enabledSvc = Object.values(this.services).filter(s => s.enabled && s.amount > 0);
         this.lastResult = { 
             contract, 
             items: calcItems, 
             services: JSON.parse(JSON.stringify(this.services)),
-            discount: this.customDiscount  // Сохраняем текущую скидку
+            discount: this.customDiscount
         };
         
-        // Расчёт сумм
         const itemsTotal = calcItems.reduce((s, i) => s + i.toCollect, 0);
         const svcTotal = enabledSvc.reduce((s, sv) => s + sv.amount, 0);
         const subtotal = itemsTotal + svcTotal;
         const discountAmount = this.customDiscount > 0 ? subtotal * this.customDiscount / 100 : 0;
         const grandTotal = subtotal - discountAmount;
         
-        // Определяем тип оплаты
         const payType = this.customDiscount > 0 ? 'наличный расчет' : 
                        (contract.paymentType === 'cash' ? 'наличный расчет' : 'безналичный расчет');
         
-        // Текст для Telegram
         let tg = `Договор ${contract.number} ${payType}:\n`;
         for (const item of calcItems) {
             const fromTo = item.paidPercent > 0 ? ` (${item.paidPercent}% → ${item.targetPercent}%)` : 
@@ -2284,14 +2220,12 @@ const CalcModule = {
             tg += `${item.name}${fromTo} = ${this.api.formatMoney(item.toCollect)}\n`;
         }
         
-        // Услуги в тексте
         if (enabledSvc.length) {
             for (const s of enabledSvc) {
                 tg += `${s.name} = ${this.api.formatMoney(s.amount)}\n`;
             }
         }
         
-        // Итого со скидкой
         if (this.customDiscount > 0) {
             tg += `Итого: ${this.api.formatMoney(subtotal)} − ${this.customDiscount}% = ${this.api.formatMoney(grandTotal)}`;
         } else if (enabledSvc.length) {
@@ -2300,7 +2234,6 @@ const CalcModule = {
             tg += `Итого: ${this.api.formatMoney(grandTotal)}`;
         }
         
-        // Сохраняем в историю
         await this.api.db.save('history', {
             id: this.api.generateId(),
             created: new Date().toISOString(),
@@ -2309,7 +2242,6 @@ const CalcModule = {
             telegramText: tg
         });
         
-        // Результат с детализацией по изделиям
         let resHtml = `<div class="section-title">${contract.number} — Позиции</div><div class="card mb-15">`;
         for (const item of calcItems) {
             const fromTo = item.paidPercent > 0 ? `${item.paidPercent}% → ${item.targetPercent}%` : `до ${item.targetPercent}%`;
@@ -2331,7 +2263,6 @@ const CalcModule = {
         `;
         resHtml += '</div>';
         
-        // Услуги
         if (enabledSvc.length) {
             resHtml += '<div class="section-title">Доп. услуги</div><div class="card mb-15">';
             for (const s of enabledSvc) {
@@ -2346,7 +2277,6 @@ const CalcModule = {
             resHtml += '</div>';
         }
         
-        // Скидка
         if (this.customDiscount > 0) {
             resHtml += '<div class="section-title">Скидка</div><div class="card mb-15">';
             resHtml += `
@@ -2386,7 +2316,6 @@ const CalcModule = {
         });
     },
     
-    // Показать форму для фиксации оплаты с датой
     showConfirmPayment() {
         if (!this.lastResult) return;
         
@@ -2400,7 +2329,6 @@ const CalcModule = {
         
         const today = new Date().toISOString().split('T')[0];
         
-        // Детализация по позициям
         let detailsHtml = items.map(i => `
             <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px">
                 <span>${i.name} (${i.paidPercent}% → ${i.targetPercent}%)</span>
@@ -2408,7 +2336,6 @@ const CalcModule = {
             </div>
         `).join('');
         
-        // Услуги
         if (enabledSvc.length) {
             detailsHtml += `<div style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px"></div>`;
             detailsHtml += enabledSvc.map(s => `
@@ -2419,7 +2346,6 @@ const CalcModule = {
             `).join('');
         }
         
-        // Скидка
         if (discount > 0) {
             detailsHtml += `
                 <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px;display:flex;justify-content:space-between;font-size:13px">
@@ -2460,7 +2386,6 @@ const CalcModule = {
         });
     },
     
-    // Сохранить оплату с детализацией
     async saveConfirmedPayment() {
         if (!this.lastResult) return;
         
@@ -2480,7 +2405,6 @@ const CalcModule = {
         const discountAmount = discount > 0 ? subtotal * discount / 100 : 0;
         const grandTotal = subtotal - discountAmount;
         
-        // Сохраняем оплату с детализацией
         const paymentId = this.api.generateId();
         await this.api.db.save('payments', {
             id: paymentId,
@@ -2488,7 +2412,6 @@ const CalcModule = {
             date: date,
             amount: grandTotal,
             type: type,
-            // Детализация по позициям
             details: items.map(i => ({
                 itemId: i.id,
                 itemName: i.name,
@@ -2498,13 +2421,12 @@ const CalcModule = {
                 amount: i.toCollect
             })),
             services: enabledSvc.map(s => ({ name: s.name, amount: s.amount })),
-            discount: discount,  // Сохраняем скидку
-            discountAmount: discountAmount,  // Сумма скидки
-            subtotal: subtotal,  // Подитог до скидки
+            discount: discount,
+            discountAmount: discountAmount,
+            subtotal: subtotal,
             created: new Date().toISOString()
         });
         
-        // Обновляем paidPercent изделий
         for (const calcItem of items) {
             const item = await this.api.db.get('items', calcItem.id);
             if (item) {
@@ -2516,7 +2438,6 @@ const CalcModule = {
         this.api.closeModal();
         this.api.showToast('✅ Оплата сохранена!', 'success');
         
-        // Перезагружаем данные и перерисовываем
         await this.loadData();
         this.api.rerender();
     },
@@ -2783,10 +2704,6 @@ const SettingsModule = {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
-// ЗАПУСК
-// ════════════════════════════════════════════════════════════════════════════
-
-// ════════════════════════════════════════════════════════════════════════════
 // ТЕМА И SIDEBAR
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -2843,6 +2760,8 @@ App.registerModule('history', HistoryModule);
 App.registerModule('settings', SettingsModule);
 
 document.addEventListener('DOMContentLoaded', () => App.init());
+// FIX: закрытие модалки по Escape
+document.addEventListener('keydown', e => { if (e.key === 'Escape') App.closeModal(); });
 window.App = App;
 </script>
 </body>
