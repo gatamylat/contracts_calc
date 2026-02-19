@@ -1003,6 +1003,7 @@ class AppCore {
         this.modules = {};
         this.activeModule = null;
         this.db = null;
+        this.modalStack = [];
         
         this.dom = {
             content: document.getElementById('mainContent'),
@@ -1161,6 +1162,11 @@ class AppCore {
     }
     
     showModal(config) {
+        // Если модалка уже открыта — сохраняем текущее содержимое в стек
+        if (this.dom.modal.classList.contains('active')) {
+            this.modalStack.push(this.dom.modalContent.innerHTML);
+        }
+        
         this.dom.modalContent.innerHTML = `
             <div class="modal-header">
                 <span class="modal-title">${config.title || ''}</span>
@@ -1171,7 +1177,24 @@ class AppCore {
         this.dom.modal.classList.add('active');
     }
     
-    closeModal() { this.dom.modal.classList.remove('active'); }
+    closeModal() {
+        if (this.modalStack.length > 0) {
+            // Возвращаемся к предыдущему содержимому
+            this.dom.modalContent.innerHTML = this.modalStack.pop();
+            this.dom.modalContent.scrollTop = 0;
+        } else {
+            this.dom.modal.classList.remove('active');
+        }
+    }
+    
+    closeAllModals() {
+        this.modalStack = [];
+        this.dom.modal.classList.remove('active');
+    }
+    
+    resetModalStack() {
+        this.modalStack = [];
+    }
     
     showToast(msg, type = '') {
         this.dom.toast.textContent = msg;
@@ -1199,6 +1222,8 @@ class AppCore {
             },
             showModal: c => this.showModal(c),
             closeModal: () => this.closeModal(),
+            closeAllModals: () => this.closeAllModals(),
+            resetModalStack: () => this.resetModalStack(),
             showToast: (m, t) => this.showToast(m, t),
             refresh: () => this.refresh(),
             rerender: () => this.rerender(),
@@ -1326,7 +1351,7 @@ const ContractsModule = {
             created: new Date().toISOString()
         });
         
-        this.api.closeModal();
+        this.api.closeAllModals();
         this.api.showToast('✅ Договор добавлен', 'success');
         await this.api.refresh();
     },
@@ -1410,7 +1435,7 @@ const ContractsModule = {
     },
     
     goToCalc(contractId) {
-        this.api.closeModal();
+        this.api.closeAllModals();
         CalcModule.selectedContractId = contractId;
         CalcModule.selectedItems = [];
         CalcModule.customPercents = {};
@@ -1481,7 +1506,7 @@ const ContractsModule = {
                     <button class="btn btn-secondary" style="flex:1" onclick="ContractsModule.editPayment('${paymentId}', '${contractId}')">✏️ Изменить</button>
                     <button class="btn btn-danger" onclick="ContractsModule.deletePayment('${paymentId}', '${contractId}')">🗑️</button>
                 </div>
-                <button class="btn btn-primary btn-block mt-15" onclick="ContractsModule.showContract('${contractId}')">← Назад</button>
+                <button class="btn btn-primary btn-block mt-15" onclick="App.closeModal()">← Назад</button>
             `
         });
     },
@@ -1509,7 +1534,7 @@ const ContractsModule = {
                     </select>
                 </div>
                 <button class="btn btn-primary btn-block" onclick="ContractsModule.saveEditPayment('${paymentId}', '${contractId}')">💾 Сохранить</button>
-                <button class="btn btn-secondary btn-block mt-10" onclick="ContractsModule.showPaymentDetails('${paymentId}', '${contractId}')">← Назад</button>
+                <button class="btn btn-secondary btn-block mt-10" onclick="App.closeModal()">← Назад</button>
             `
         });
     },
@@ -1527,6 +1552,7 @@ const ContractsModule = {
         
         await this.loadContracts();
         this.api.rerender();
+        this.api.resetModalStack();
         this.showContract(contractId);
     },
     
@@ -1659,6 +1685,7 @@ const ContractsModule = {
         this.api.rerender();
         
         this.api.showToast('✅ Оплата добавлена', 'success');
+        this.api.resetModalStack();
         this.showContract(contractId);
     },
     
@@ -1670,6 +1697,7 @@ const ContractsModule = {
         this.api.rerender();
         
         this.api.showToast('🗑️ Удалено', 'success');
+        this.api.resetModalStack();
         this.showContract(contractId);
     },
     
@@ -1719,7 +1747,7 @@ const ContractsModule = {
         c.discount = parseFloat(document.getElementById('eDiscount').value) || 0;
         
         await this.api.db.save('contracts', c);
-        this.api.closeModal();
+        this.api.closeAllModals();
         this.api.showToast('✅ Сохранено', 'success');
         await this.api.refresh();
     },
@@ -1760,6 +1788,7 @@ const ContractsModule = {
         });
         
         this.api.showToast('✅ Позиция добавлена', 'success');
+        this.api.resetModalStack();
         this.showContract(contractId);
     },
     
@@ -1813,6 +1842,7 @@ const ContractsModule = {
         
         await this.api.db.save('items', item);
         this.api.showToast('✅ Сохранено', 'success');
+        this.api.resetModalStack();
         this.showContract(contractId);
     },
     
@@ -1820,6 +1850,7 @@ const ContractsModule = {
         if (!confirm('Удалить позицию?')) return;
         await this.api.db.delete('items', itemId);
         this.api.showToast('🗑️ Удалено', 'success');
+        this.api.resetModalStack();
         this.showContract(contractId);
     },
     
@@ -1833,7 +1864,7 @@ const ContractsModule = {
         for (const p of payments) await this.api.db.delete('payments', p.id);
         
         await this.api.db.delete('contracts', id);
-        this.api.closeModal();
+        this.api.closeAllModals();
         this.api.showToast('🗑️ Удалено', 'success');
         await this.api.refresh();
     },
@@ -2435,7 +2466,7 @@ const CalcModule = {
             }
         }
         
-        this.api.closeModal();
+        this.api.closeAllModals();
         this.api.showToast('✅ Оплата сохранена!', 'success');
         
         await this.loadData();
@@ -2591,7 +2622,7 @@ const HistoryModule = {
     async deleteEntry(id) {
         if (!confirm('Удалить?')) return;
         await this.api.db.delete('history', id);
-        this.api.closeModal();
+        this.api.closeAllModals();
         this.api.showToast('🗑️ Удалено', 'success');
         await this.api.refresh();
     },
